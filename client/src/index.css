@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ========== Theme tokens ========== */
+  :root {
+    --c-void: #f5f5f0;
+    --c-abyss: #eaeae5;
+    --c-crypt: #ddddd8;
+    --c-glyph: #c8c8c2;
+    --c-shade: #6b7280;
+    --c-bone: #1a1a1e;
+    --c-skull: #0a0a0c;
+    --c-terminal: #16a34a;
+    --c-terminal-dim: #15803d;
+    --c-terminal-glow: rgba(22, 163, 74, 0.15);
+  }
+
+  .dark {
+    --c-void: #0a0a0c;
+    --c-abyss: #111115;
+    --c-crypt: #1a1a20;
+    --c-glyph: #2a2a32;
+    --c-shade: #5a5a68;
+    --c-bone: #c8c8d0;
+    --c-skull: #e8e8ee;
+    --c-terminal: #00ff41;
+    --c-terminal-dim: #00cc33;
+    --c-terminal-glow: rgba(0, 255, 65, 0.15);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--c-void);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--c-glyph);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--c-shade);
+  }
+
+  ::selection {
+    background: var(--c-terminal-glow);
+    color: var(--c-terminal);
+  }
+}
+
+body {
+  min-height: 100vh;
+  background: var(--c-void);
+  color: var(--c-bone);
+}
+
+/* ========== TipTap Editor ========== */
+
+.tiptap {
+  outline: none;
+  min-height: calc(100vh - 48px);
+  padding: 2rem;
+  max-width: 80ch;
+  margin: 0 auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--c-bone);
+  caret-color: var(--c-terminal);
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--c-shade);
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+/* Headings */
+.tiptap h1 { font-size: 1.75rem; font-weight: 800; margin: 1.5rem 0 0.75rem; color: var(--c-skull); letter-spacing: -0.02em; }
+.tiptap h2 { font-size: 1.35rem; font-weight: 700; margin: 1.25rem 0 0.5rem; color: var(--c-skull); }
+.tiptap h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; color: var(--c-skull); }
+
+/* Lists */
+.tiptap ul { list-style: disc; padding-left: 1.5rem; }
+.tiptap ol { list-style: decimal; padding-left: 1.5rem; }
+.tiptap ul li::marker { color: var(--c-terminal); }
+.tiptap ol li::marker { color: var(--c-terminal); }
+
+/* Task lists */
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.tiptap ul[data-type="taskList"] li label {
+  margin-top: 0.25rem;
+}
+.tiptap ul[data-type="taskList"] li label input[type="checkbox"] {
+  accent-color: var(--c-terminal);
+}
+
+/* Blockquote */
+.tiptap blockquote {
+  border-left: 2px solid var(--c-terminal);
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: var(--c-shade);
+  font-style: italic;
+}
+
+/* Code blocks */
+.tiptap pre {
+  background: var(--c-void);
+  border: 1px solid var(--c-glyph);
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+.tiptap pre code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  color: var(--c-bone);
+}
+
+/* Inline code */
+.tiptap code {
+  background: var(--c-crypt);
+  border: 1px solid var(--c-glyph);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.85rem;
+  color: var(--c-terminal);
+}
+
+/* Highlight */
+.tiptap mark {
+  background: var(--c-terminal-glow);
+  border-radius: 2px;
+  padding: 0.05rem 0.15rem;
+  color: var(--c-skull);
+}
+
+/* Text decorations */
+.tiptap s { text-decoration: line-through; }
+.tiptap u { text-decoration: underline; }
+
+/* Links */
+.tiptap a {
+  color: #a855f7;
+  text-decoration: underline;
+  text-decoration-color: rgba(168, 85, 247, 0.4);
+  cursor: pointer;
+}
+.tiptap a:hover {
+  text-decoration-color: #a855f7;
+}
+
+/* Spacing */
+.tiptap p { margin: 0.25rem 0; }
+.tiptap li { margin: 0.1rem 0; }
+
+/* ========== Collaboration Cursors ========== */
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  border-right: 2px solid;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.5em;
+  left: 0;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  user-select: none;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.collaboration-cursor__selection {
+  opacity: 0.2;
+}
+

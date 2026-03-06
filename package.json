@@ -1,0 +1,14 @@
+{
+  "name": "anotait",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "npm run dev:server & npm run dev:client",
+    "dev:docker": "bash dev.sh",
+    "build:client": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "install:all": "cd server && npm install && cd ../client && npm install"
+  }
+}

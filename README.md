@@ -1,6 +1,8 @@
-# notepad666
+# anota
 
 Collaborative note-taking app with real-time editing powered by Y.js CRDTs.
+
+Live at: **anota.it**
 
 ## Features
 

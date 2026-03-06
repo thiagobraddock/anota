@@ -3,7 +3,7 @@ import { api, renameCreatorToken, removeCreatorToken } from '../lib/api'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 
-const STORAGE_PREFIX = 'anotait_'
+const STORAGE_PREFIX = 'anota_'
 
 function saveToLocal(slug, content) {
   try {

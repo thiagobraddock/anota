@@ -1,6 +1,6 @@
 const BASE = '/api'
 
-const CREATOR_TOKENS_KEY = 'anotait_creator_tokens'
+const CREATOR_TOKENS_KEY = 'anota_creator_tokens'
 const LEGACY_TOKENS_KEY = 'notepad666_creator_tokens'
 
 // Migrate legacy localStorage key

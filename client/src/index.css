@@ -66,7 +66,7 @@ body {
   padding: 2rem;
   max-width: 80ch;
   margin: 0 auto;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.9rem;
   line-height: 1.7;
   color: var(--c-bone);
@@ -83,15 +83,41 @@ body {
 }
 
 /* Headings */
-.tiptap h1 { font-size: 1.75rem; font-weight: 800; margin: 1.5rem 0 0.75rem; color: var(--c-skull); letter-spacing: -0.02em; }
-.tiptap h2 { font-size: 1.35rem; font-weight: 700; margin: 1.25rem 0 0.5rem; color: var(--c-skull); }
-.tiptap h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; color: var(--c-skull); }
+.tiptap h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 1.5rem 0 0.75rem;
+  color: var(--c-skull);
+  letter-spacing: -0.02em;
+}
+.tiptap h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--c-skull);
+}
+.tiptap h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+  color: var(--c-skull);
+}
 
 /* Lists */
-.tiptap ul { list-style: disc; padding-left: 1.5rem; }
-.tiptap ol { list-style: decimal; padding-left: 1.5rem; }
-.tiptap ul li::marker { color: var(--c-terminal); }
-.tiptap ol li::marker { color: var(--c-terminal); }
+.tiptap ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.tiptap ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.tiptap ul li::marker {
+  color: var(--c-terminal);
+}
+.tiptap ol li::marker {
+  color: var(--c-terminal);
+}
 
 /* Task lists */
 .tiptap ul[data-type="taskList"] {
@@ -129,7 +155,7 @@ body {
   overflow-x: auto;
 }
 .tiptap pre code {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.85rem;
   color: var(--c-bone);
 }
@@ -153,8 +179,12 @@ body {
 }
 
 /* Text decorations */
-.tiptap s { text-decoration: line-through; }
-.tiptap u { text-decoration: underline; }
+.tiptap s {
+  text-decoration: line-through;
+}
+.tiptap u {
+  text-decoration: underline;
+}
 
 /* Links */
 .tiptap a {
@@ -168,8 +198,12 @@ body {
 }
 
 /* Spacing */
-.tiptap p { margin: 0.25rem 0; }
-.tiptap li { margin: 0.1rem 0; }
+.tiptap p {
+  margin: 0.25rem 0;
+}
+.tiptap li {
+  margin: 0.1rem 0;
+}
 
 /* ========== Collaboration Cursors ========== */
 
@@ -204,4 +238,3 @@ body {
 .collaboration-cursor__selection {
   opacity: 0.2;
 }
-

@@ -36,6 +36,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/notes", notesRouter);
 app.use("/api/auth", authRouter);
 

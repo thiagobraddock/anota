@@ -16,6 +16,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for Railway/cloud deployments (required for secure cookies behind reverse proxy)
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 app.use(express.json({ limit: "5mb" }));
 
 const PgSession = connectPgSimple(session);

@@ -6,8 +6,6 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import Collaboration from '@tiptap/extension-collaboration'
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { common, createLowlight } from 'lowlight'
 import { useEffect, useRef } from 'react'
 
@@ -18,18 +16,15 @@ export default function Editor({
   onUpdate, 
   onEditorReady, 
   editable = true,
-  ydoc = null, 
-  provider = null,
-  user = null 
+  onRemoteUpdate,
+  sendContent,
 }) {
   const readyRef = useRef(false)
+  const isRemoteUpdateRef = useRef(false)
 
-  // Build extensions list based on collaboration mode
   const extensions = [
     StarterKit.configure({
       codeBlock: false,
-      // Disable history when using collaboration (Y.js has its own)
-      history: ydoc ? false : undefined,
     }),
     Underline,
     Highlight,
@@ -43,38 +38,23 @@ export default function Editor({
     }),
   ]
 
-  // Add collaboration extensions if ydoc is provided
-  if (ydoc && provider) {
-    extensions.push(
-      Collaboration.configure({
-        document: ydoc,
-      }),
-      CollaborationCursor.configure({
-        provider: provider,
-        user: user || {
-          name: 'Anônimo',
-          color: getRandomColor(),
-        },
-      })
-    )
-  }
-
   const editor = useEditor({
     extensions,
-    content: ydoc ? undefined : (content || ''), // Don't set initial content in collab mode
+    content: content || '',
     editable,
     onCreate: () => {
-      // Only start saving after editor is fully initialized with content
-      if (!ydoc) {
-        setTimeout(() => {
-          readyRef.current = true
-        }, 100)
-      }
+      setTimeout(() => {
+        readyRef.current = true
+      }, 100)
     },
     onUpdate: ({ editor }) => {
-      // Only use onUpdate callback in non-collaborative mode
-      if (!ydoc && readyRef.current) {
-        onUpdate(editor.getJSON())
+      if (readyRef.current && !isRemoteUpdateRef.current) {
+        const json = editor.getJSON()
+        onUpdate(json)
+        // Send to WebSocket if available
+        if (sendContent) {
+          sendContent(json)
+        }
       }
     },
     editorProps: {
@@ -90,17 +70,33 @@ export default function Editor({
     }
   }, [editor, onEditorReady])
 
-  // Sync editable state when it changes
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
       editor.setEditable(editable)
     }
   }, [editor, editable])
 
-  // Set initial content when note loads (if content arrives after editor init)
-  // Only in non-collaborative mode
+  // Register for remote updates
   useEffect(() => {
-    if (editor && content && !editor.isDestroyed && content.type && !ydoc) {
+    if (onRemoteUpdate && editor) {
+      onRemoteUpdate((remoteContent) => {
+        if (editor && !editor.isDestroyed && remoteContent) {
+          const currentContent = JSON.stringify(editor.getJSON())
+          const newContent = JSON.stringify(remoteContent)
+          if (currentContent !== newContent) {
+            isRemoteUpdateRef.current = true
+            editor.commands.setContent(remoteContent, false)
+            setTimeout(() => {
+              isRemoteUpdateRef.current = false
+            }, 50)
+          }
+        }
+      })
+    }
+  }, [onRemoteUpdate, editor])
+
+  useEffect(() => {
+    if (editor && content && !editor.isDestroyed && content.type) {
       const currentContent = JSON.stringify(editor.getJSON())
       const newContent = JSON.stringify(content)
       if (currentContent !== newContent) {
@@ -111,17 +107,7 @@ export default function Editor({
         }, 100)
       }
     }
-  }, [editor, content, ydoc])
+  }, [editor, content])
 
   return <EditorContent editor={editor} className="flex-1" />
-}
-
-// Generate random color for collaboration cursors
-function getRandomColor() {
-  const colors = [
-    '#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8',
-    '#94FADB', '#B9F18D', '#C3E2C2', '#EAECCC', '#AFC8AD',
-    '#EEC759', '#9BB8CD', '#FF90BC', '#FFC0D9', '#F6B17A'
-  ]
-  return colors[Math.floor(Math.random() * colors.length)]
 }

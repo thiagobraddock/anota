@@ -28,7 +28,8 @@ export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/notepad"
 # Para postgres ao encerrar
 trap "echo -e '\n${YELLOW}Parando PostgreSQL...${NC}'; docker-compose down" EXIT
 
-# Roda dev localmente
-cd /Users/thiagooliveira/developer/notepad666
+# Roda dev localmente (usa path do script)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 npm run dev:server & npm run dev:client
 wait

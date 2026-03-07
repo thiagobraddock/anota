@@ -16,21 +16,13 @@ export default function NotePage() {
   const {
     note, loading, error, saving, needsPassword,
     canEdit, isOwner, accessMode,
-    save, verifyPassword, toggleAccessMode,
+    collaborators, connected,
+    save, sendContent, onRemoteUpdate,
+    verifyPassword, toggleAccessMode,
     handleRename, handleDelete,
     refetch,
-    ydoc, provider,
   } = useNote(slug)
   const [editor, setEditor] = useState(null)
-
-  // Prepare user data for collaboration
-  const collaborationUser = user ? {
-    name: user.name,
-    color: getUserColor(user.id),
-  } : {
-    name: 'Anônimo',
-    color: getRandomColor(),
-  }
 
   if (loading) {
     return (
@@ -73,7 +65,13 @@ export default function NotePage() {
         <Toolbar editor={editor} canEdit={canEdit} />
 
         <div className="flex items-center gap-2 shrink-0">
-          {saving && canEdit && !provider && (
+          {accessMode === 'open' && (
+            <CollaborationBar 
+              connected={connected} 
+              collaborators={collaborators} 
+            />
+          )}
+          {saving && canEdit && (
             <span className="flex items-center gap-1.5 text-xs text-shade">
               <span className="w-1.5 h-1.5 rounded-full bg-terminal animate-glow-pulse" />
               sync
@@ -94,36 +92,14 @@ export default function NotePage() {
         </div>
       </header>
 
-      {/* Collaboration bar - only show when collaborative */}
-      {provider && <CollaborationBar provider={provider} user={collaborationUser} />}
-
       <Editor
         content={note?.content}
         onUpdate={save}
         onEditorReady={setEditor}
         editable={canEdit}
-        ydoc={ydoc}
-        provider={provider}
-        user={collaborationUser}
+        sendContent={accessMode === 'open' ? sendContent : undefined}
+        onRemoteUpdate={accessMode === 'open' ? onRemoteUpdate : undefined}
       />
     </div>
   )
-}
-
-// Generate consistent color for user based on their ID
-function getUserColor(userId) {
-  const colors = [
-    '#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8',
-    '#94FADB', '#B9F18D', '#C3E2C2', '#EAECCC', '#AFC8AD',
-  ]
-  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  return colors[hash % colors.length]
-}
-
-// Generate random color for anonymous users
-function getRandomColor() {
-  const colors = [
-    '#FF90BC', '#FFC0D9', '#F6B17A', '#9BB8CD', '#EEC759'
-  ]
-  return colors[Math.floor(Math.random() * colors.length)]
 }

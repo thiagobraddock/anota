@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { api, renameCreatorToken, removeCreatorToken } from "../lib/api";
-import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
+import { api } from "../lib/api";
 
 const STORAGE_PREFIX = "anota_";
 
@@ -28,42 +26,48 @@ export function useNote(slug) {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
-  const [canEdit, setCanEdit] = useState(true);
+  const [canEdit, setCanEdit] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [accessMode, setAccessMode] = useState("private");
+  const [collaborators, setCollaborators] = useState([]);
+  const [connected, setConnected] = useState(false);
   const timerRef = useRef(null);
-  const apiAvailableRef = useRef(false);
-
-  // Y.js collaboration states
-  const [ydoc] = useState(() => new Y.Doc());
-  const [provider, setProvider] = useState(null);
-  const providerRef = useRef(null);
+  const wsRef = useRef(null);
+  const onRemoteUpdateRef = useRef(null);
 
   const fetchNote = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+
       const data = await api.getNote(slug);
-      apiAvailableRef.current = true;
+
       if (data.needs_password) {
         setNeedsPassword(true);
         setNote(data);
+        setCanEdit(false);
       } else {
         setNeedsPassword(false);
         setNote(data);
+        setCanEdit(data.can_edit ?? false);
+        setIsOwner(data.is_owner ?? false);
+        setAccessMode(data.access_mode ?? "private");
       }
-      setCanEdit(data.can_edit !== undefined ? data.can_edit : true);
-      setIsOwner(data.is_owner || false);
-      setAccessMode(data.access_mode || "open");
+
+      console.log("📋 Note loaded:", {
+        slug,
+        canEdit: data.can_edit,
+        isOwner: data.is_owner,
+        accessMode: data.access_mode,
+      });
     } catch (err) {
-      if (err.status === 404 || !err.status) {
-        apiAvailableRef.current = !!err.status;
-        // Try loading from localStorage
+      if (err.status === 404) {
         const local = loadFromLocal(slug);
         setNote({ slug, content: local });
-        setCanEdit(true); // New note - user is creator
+        setCanEdit(true);
         setIsOwner(true);
-        setAccessMode("open");
+        setAccessMode("private");
+        console.log("📋 New note (not yet saved):", slug);
       } else {
         setError(err.error || "Erro ao carregar nota");
       }
@@ -76,59 +80,89 @@ export function useNote(slug) {
     fetchNote();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      // Close WebSocket on unmount
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, [fetchNote]);
 
-  // Setup WebSocket provider for collaboration
+  // WebSocket connection for open notes
   useEffect(() => {
-    // Only setup collaboration if:
-    // 1. Note is loaded
-    // 2. Doesn't need password
-    // 3. Access mode is 'open' (collaborative notes only)
-    if (!note || needsPassword || accessMode === "private" || !slug) {
+    if (accessMode !== "open" || loading) {
       return;
     }
 
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsHost = import.meta.env.PROD
-      ? window.location.host
-      : "localhost:3000";
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/collaboration/${slug}`;
+    
+    console.log("🔌 Connecting WebSocket:", wsUrl);
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
-    const wsProvider = new WebsocketProvider(
-      `${wsProtocol}//${wsHost}/collaboration`,
-      slug,
-      ydoc,
-      {
-        connect: true,
-        params: { slug },
-      },
-    );
+    ws.onopen = () => {
+      console.log("✅ WebSocket connected");
+      setConnected(true);
+    };
 
-    providerRef.current = wsProvider;
-    setProvider(wsProvider);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        
+        if (msg.type === "content" && msg.from !== "self") {
+          console.log("📥 Received remote content update");
+          // Call the callback if registered
+          if (onRemoteUpdateRef.current) {
+            onRemoteUpdateRef.current(msg.content);
+          }
+        } else if (msg.type === "users") {
+          console.log("👥 Users update:", msg.count);
+          setCollaborators(msg.users || []);
+        }
+      } catch (err) {
+        console.error("WebSocket message error:", err);
+      }
+    };
 
-    console.log("🔗 Collaboration enabled for:", slug);
+    ws.onclose = () => {
+      console.log("🔌 WebSocket disconnected");
+      setConnected(false);
+      setCollaborators([]);
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
 
     return () => {
-      console.log("🔌 Disconnecting collaboration for:", slug);
-      wsProvider.destroy();
-      setProvider(null);
-      providerRef.current = null;
+      ws.close();
+      wsRef.current = null;
+      setConnected(false);
+      setCollaborators([]);
     };
-  }, [note, needsPassword, accessMode, slug, ydoc]);
+  }, [slug, accessMode, loading]);
+
+  // Function to register callback for remote updates
+  const onRemoteUpdate = useCallback((callback) => {
+    onRemoteUpdateRef.current = callback;
+  }, []);
+
+  // Function to send content via WebSocket
+  const sendContent = useCallback((content) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "content", content }));
+    }
+  }, []);
 
   const save = useCallback(
     (content) => {
-      // Don't save if user can't edit
-      if (!canEdit) return;
-
-      // In collaborative mode, Y.js handles sync automatically
-      if (providerRef.current) {
-        saveToLocal(slug, content); // Still save to localStorage for offline fallback
+      if (!canEdit) {
+        console.warn("⚠️ Save blocked: no edit permission");
         return;
       }
 
-      // Non-collaborative mode: use debounced HTTP save
       saveToLocal(slug, content);
 
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -136,14 +170,12 @@ export function useNote(slug) {
         try {
           setSaving(true);
           await api.saveNote(slug, content);
-          apiAvailableRef.current = true;
+          console.log("💾 Saved to server");
         } catch (err) {
           if (err.status === 403) {
-            // Lost edit permission (note was made private)
             setCanEdit(false);
           }
-          // localStorage already has the data, so content is safe
-          console.error("Save error (saved locally):", err);
+          console.error("Save error:", err);
         } finally {
           setSaving(false);
         }
@@ -155,40 +187,45 @@ export function useNote(slug) {
   const verifyPassword = useCallback(
     async (password) => {
       try {
-        await api.verifyPassword(slug, password);
+        const data = await api.verifyPassword(slug, password);
         setNeedsPassword(false);
-        await fetchNote();
+        setNote(data);
+        setCanEdit(data.can_edit ?? false);
+        setIsOwner(data.is_owner ?? false);
+        setAccessMode(data.access_mode ?? "private");
         return true;
-      } catch {
+      } catch (err) {
+        console.error("Password verification failed:", err);
         return false;
       }
     },
-    [slug, fetchNote],
+    [slug],
   );
 
   const toggleAccessMode = useCallback(async () => {
-    const newMode = accessMode === "open" ? "private" : "open";
+    const newMode = accessMode === "private" ? "open" : "private";
+    console.log(`🔄 Toggling access mode: ${accessMode} → ${newMode}`);
+
     try {
       await api.setAccessMode(slug, newMode);
       setAccessMode(newMode);
+      console.log(`✅ Access mode: ${newMode}`);
       return true;
-    } catch {
+    } catch (err) {
+      console.error("❌ Toggle access mode failed:", err);
       return false;
     }
   }, [slug, accessMode]);
 
   const handleRename = useCallback(
     async (newSlug) => {
-      const result = await api.renameNote(slug, newSlug);
-      renameCreatorToken(slug, newSlug);
-      return result;
+      return await api.renameNote(slug, newSlug);
     },
     [slug],
   );
 
   const handleDelete = useCallback(async () => {
     await api.deleteNote(slug);
-    removeCreatorToken(slug);
   }, [slug]);
 
   return {
@@ -200,14 +237,15 @@ export function useNote(slug) {
     canEdit,
     isOwner,
     accessMode,
+    collaborators,
+    connected,
     save,
+    sendContent,
+    onRemoteUpdate,
     verifyPassword,
     toggleAccessMode,
     handleRename,
     handleDelete,
     refetch: fetchNote,
-    // Collaboration
-    ydoc,
-    provider,
   };
 }

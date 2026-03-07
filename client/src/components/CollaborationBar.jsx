@@ -1,103 +1,41 @@
-import { useState, useEffect } from 'react'
-
-export default function CollaborationBar({ provider, user }) {
-  const [users, setUsers] = useState([])
-  const [status, setStatus] = useState('disconnected')
-
-  useEffect(() => {
-    if (!provider) return
-
-    const awareness = provider.awareness
-
-    // Update connection status
-    const updateStatus = () => {
-      if (provider.wsconnected) {
-        setStatus('connected')
-      } else if (provider.wsconnecting) {
-        setStatus('connecting')
-      } else {
-        setStatus('disconnected')
-      }
-    }
-
-    // Update users list when awareness changes
-    const updateUsers = () => {
-      const states = Array.from(awareness.getStates().values())
-      const uniqueUsers = states
-        .filter(state => state.user)
-        .reduce((acc, state) => {
-          // Deduplicate by clientId or user name
-          const key = state.user.name
-          if (!acc.find(u => u.name === key)) {
-            acc.push(state.user)
-          }
-          return acc
-        }, [])
-      
-      setUsers(uniqueUsers)
-    }
-
-    // Set current user
-    if (user) {
-      awareness.setLocalStateField('user', user)
-    }
-
-    // Listen to events
-    provider.on('status', updateStatus)
-    awareness.on('change', updateUsers)
-
-    // Initial update
-    updateStatus()
-    updateUsers()
-
-    // Cleanup
-    return () => {
-      provider.off('status', updateStatus)
-      awareness.off('change', updateUsers)
-    }
-  }, [provider, user])
-
-  if (!provider) return null
+export default function CollaborationBar({ connected, collaborators }) {
+  const count = collaborators?.length || 0
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/50 border-b border-zinc-800">
+    <div className="flex items-center gap-2">
       {/* Connection status */}
-      <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${
-          status === 'connected' ? 'bg-green-500 animate-pulse' :
-          status === 'connecting' ? 'bg-yellow-500 animate-pulse' :
-          'bg-red-500'
+      <div className="flex items-center gap-1.5">
+        <div className={`w-1.5 h-1.5 rounded-full ${
+          connected ? 'bg-green-400 animate-pulse' : 'bg-red-400'
         }`} />
-        <span className="text-xs text-zinc-400">
-          {status === 'connected' ? 'Conectado' :
-           status === 'connecting' ? 'Conectando...' :
-           'Desconectado'}
+        <span className="text-xs text-shade">
+          {connected ? 'live' : 'offline'}
         </span>
       </div>
 
-      {/* Users online */}
-      {users.length > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-500">•</span>
-          <div className="flex items-center gap-1">
-            {users.slice(0, 5).map((user, idx) => (
+      {/* User count */}
+      {connected && count > 0 && (
+        <div className="flex items-center gap-1">
+          {/* User avatars */}
+          <div className="flex -space-x-1.5">
+            {collaborators.slice(0, 3).map((user, i) => (
               <div
-                key={idx}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white border-2 border-zinc-900"
-                style={{ backgroundColor: user.color }}
-                title={user.name}
+                key={user.id || i}
+                className="w-5 h-5 rounded-full border border-void text-[9px] flex items-center justify-center font-medium text-void"
+                style={{ backgroundColor: user.color || '#958DF1' }}
+                title={user.name || `User ${i + 1}`}
               >
-                {user.name ? user.name[0].toUpperCase() : '?'}
+                {(user.name || 'U')[0].toUpperCase()}
               </div>
             ))}
-            {users.length > 5 && (
-              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium bg-zinc-700 text-zinc-300 border-2 border-zinc-900">
-                +{users.length - 5}
+            {count > 3 && (
+              <div className="w-5 h-5 rounded-full border border-void bg-glyph text-[9px] flex items-center justify-center font-medium text-void">
+                +{count - 3}
               </div>
             )}
           </div>
-          <span className="text-xs text-zinc-400">
-            {users.length} {users.length === 1 ? 'pessoa' : 'pessoas'} editando
+          <span className="text-xs text-shade ml-0.5">
+            {count}
           </span>
         </div>
       )}

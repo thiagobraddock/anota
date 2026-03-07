@@ -8,6 +8,7 @@
     "dev": "node --watch index.js"
   },
   "dependencies": {
+    "automerge": "^0.14.2",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^12.6.2",
     "connect-pg-simple": "^10.0.0",
@@ -15,12 +16,9 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
-    "lib0": "^0.2.117",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.13.1",
-    "ws": "^8.18.0",
-    "y-protocols": "^1.0.6",
-    "yjs": "^13.6.18"
+    "ws": "^8.19.0"
   }
 }

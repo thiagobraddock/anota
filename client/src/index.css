@@ -62,15 +62,23 @@ body {
 
 .tiptap {
   outline: none;
-  min-height: calc(100vh - 48px);
-  padding: 2rem;
+  min-height: calc(100vh - 120px);
+  padding: 1rem;
   max-width: 80ch;
   margin: 0 auto;
   font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-size: 0.9rem;
+  font-size: 1rem;
   line-height: 1.7;
   color: var(--c-bone);
   caret-color: var(--c-terminal);
+}
+
+@media (min-width: 640px) {
+  .tiptap {
+    min-height: calc(100vh - 48px);
+    padding: 2rem;
+    font-size: 0.9rem;
+  }
 }
 
 .tiptap p.is-editor-empty:first-child::before {

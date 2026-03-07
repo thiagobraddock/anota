@@ -6,10 +6,10 @@ function ToolbarButton({ onClick, active, title, children }) {
       type="button"
       onClick={onClick}
       title={title}
-      className={`p-1.5 rounded-sm text-sm transition ${
+      className={`p-2.5 sm:p-1.5 rounded-sm text-sm transition touch-manipulation ${
         active
           ? 'bg-terminal/10 text-terminal shadow-terminal-sm'
-          : 'text-shade hover:text-skull hover:bg-crypt'
+          : 'text-shade hover:text-skull hover:bg-crypt active:bg-crypt'
       }`}
     >
       {children}
@@ -33,10 +33,10 @@ function Dropdown({ label, children, open, setOpen }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="p-1.5 rounded-sm text-sm text-shade hover:text-skull hover:bg-crypt transition flex items-center gap-0.5"
+        className="p-2.5 sm:p-1.5 rounded-sm text-sm text-shade hover:text-skull hover:bg-crypt active:bg-crypt transition touch-manipulation flex items-center gap-0.5"
       >
         {label}
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4 sm:w-3 sm:h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -69,26 +69,26 @@ export default function Toolbar({ editor, canEdit = true }) {
 
   if (!canEdit) {
     return (
-      <div className="flex items-center gap-2 flex-1 justify-center">
-        <span className="text-xs text-blood/60 flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-          [locked] apenas leitura
+      <div className="flex items-center justify-center py-1">
+        <span className="text-sm sm:text-xs text-blood/60 flex items-center gap-1.5">
+          <svg className="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+          <span className="hidden sm:inline">[locked]</span> apenas leitura
         </span>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-0.5 flex-1 justify-center">
+    <div className="flex items-center flex-wrap gap-1 sm:gap-0.5 justify-center">
       {/* Undo / Redo */}
       <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title="Desfazer">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" /></svg>
+        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" /></svg>
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title="Refazer">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" /></svg>
+        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" /></svg>
       </ToolbarButton>
 
-      <div className="w-px h-5 bg-glyph mx-1" />
+      <div className="w-px h-6 sm:h-5 bg-glyph mx-1.5 sm:mx-1" />
 
       {/* Headings */}
       <Dropdown label={<span className="font-semibold">H</span>} open={headingOpen} setOpen={setHeadingOpen}>
@@ -104,7 +104,7 @@ export default function Toolbar({ editor, canEdit = true }) {
       </Dropdown>
 
       {/* Lists */}
-      <Dropdown label={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>} open={listOpen} setOpen={setListOpen}>
+      <Dropdown label={<svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>} open={listOpen} setOpen={setListOpen}>
         <DropdownItem onClick={() => { editor.chain().focus().toggleBulletList().run(); setListOpen(false) }}>
           Bullet List
         </DropdownItem>
@@ -122,7 +122,7 @@ export default function Toolbar({ editor, canEdit = true }) {
         active={editor.isActive('blockquote')}
         title="Blockquote"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
       </ToolbarButton>
 
       {/* Code Block */}
@@ -131,10 +131,10 @@ export default function Toolbar({ editor, canEdit = true }) {
         active={editor.isActive('codeBlock')}
         title="Code Block"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
       </ToolbarButton>
 
-      <div className="w-px h-5 bg-glyph mx-1" />
+      <div className="w-px h-6 sm:h-5 bg-glyph mx-1.5 sm:mx-1" />
 
       {/* Bold */}
       <ToolbarButton
@@ -187,7 +187,7 @@ export default function Toolbar({ editor, canEdit = true }) {
         active={editor.isActive('highlight')}
         title="Highlight"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
       </ToolbarButton>
 
       {/* Clear formatting */}
@@ -195,7 +195,7 @@ export default function Toolbar({ editor, canEdit = true }) {
         onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
         title="Limpar formatacao"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
       </ToolbarButton>
     </div>
   )

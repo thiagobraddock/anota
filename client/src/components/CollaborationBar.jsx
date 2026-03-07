@@ -2,13 +2,13 @@ export default function CollaborationBar({ connected, collaborators }) {
   const count = collaborators?.length || 0
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 sm:gap-2">
       {/* Connection status */}
       <div className="flex items-center gap-1.5">
-        <div className={`w-1.5 h-1.5 rounded-full ${
+        <div className={`w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full ${
           connected ? 'bg-green-400 animate-pulse' : 'bg-red-400'
         }`} />
-        <span className="text-xs text-shade">
+        <span className="text-sm sm:text-xs text-shade">
           {connected ? 'live' : 'offline'}
         </span>
       </div>
@@ -16,8 +16,8 @@ export default function CollaborationBar({ connected, collaborators }) {
       {/* User count */}
       {connected && count > 0 && (
         <div className="flex items-center gap-1">
-          {/* User avatars */}
-          <div className="flex -space-x-1.5">
+          {/* User avatars - hidden on mobile */}
+          <div className="hidden sm:flex -space-x-1.5">
             {collaborators.slice(0, 3).map((user, i) => (
               <div
                 key={user.id || i}
@@ -34,8 +34,8 @@ export default function CollaborationBar({ connected, collaborators }) {
               </div>
             )}
           </div>
-          <span className="text-xs text-shade ml-0.5">
-            {count}
+          <span className="text-sm sm:text-xs text-shade sm:ml-0.5">
+            {count} <span className="sm:hidden">online</span>
           </span>
         </div>
       )}

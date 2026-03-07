@@ -95,13 +95,11 @@ notes (
 ## Architecture
 
 ```
-Client (React + Y.js)
-    ↓ WebSocket
+Client (React + TipTap)
+    ↓ WebSocket (JSON broadcast)
 Server (Express + ws)
-    ↓ sync protocol (y-protocols)
-Y.Doc (in-memory CRDT)
-    ↓ persistence
-PostgreSQL
+    ↓ real-time sync
+PostgreSQL (content persistence)
 ```
 
 ## Deployment

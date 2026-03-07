@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT UNIQUE NOT NULL,
   content JSONB DEFAULT '{}',
-  automerge_state BYTEA,
   owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
   owner_device_id TEXT,
   password_hash TEXT,

@@ -7,6 +7,7 @@ const rooms = new Map();
 const MSG_CONTENT = "content";
 const MSG_PRESENCE = "presence";
 const MSG_USERS = "users";
+const MSG_CURSOR = "cursor";
 
 /**
  * Get current collaborator count for a note
@@ -128,6 +129,23 @@ export function setupWebSocket(server) {
 
           // Schedule save to database
           scheduleSave(slug, room);
+        } else if (msg.type === MSG_CURSOR) {
+          // Update user's cursor position
+          userInfo.cursor = msg.cursor;
+          room.conns.set(conn, userInfo);
+
+          // Broadcast cursor to all OTHER clients
+          for (const [client] of room.conns) {
+            if (client !== conn && client.readyState === 1) {
+              send(client, {
+                type: MSG_CURSOR,
+                userId: userInfo.id,
+                cursor: msg.cursor,
+                color: userInfo.color,
+                name: userInfo.name,
+              });
+            }
+          }
         } else if (msg.type === MSG_PRESENCE) {
           // Update user info
           if (msg.name) userInfo.name = msg.name;

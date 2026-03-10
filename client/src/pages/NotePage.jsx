@@ -17,7 +17,7 @@ export default function NotePage() {
     note, loading, error, saving, needsPassword,
     canEdit, isOwner, accessMode,
     collaborators, connected,
-    save, sendContent, onRemoteUpdate,
+    save, sendContent, sendCursor, onRemoteUpdate, onRemoteCursor,
     verifyPassword, toggleAccessMode,
     handleRename, handleDelete,
     refetch,
@@ -103,8 +103,11 @@ export default function NotePage() {
         onUpdate={save}
         onEditorReady={setEditor}
         editable={canEdit}
+        collaborators={accessMode === 'open' ? collaborators : []}
         sendContent={accessMode === 'open' ? sendContent : undefined}
+        sendCursor={accessMode === 'open' ? sendCursor : undefined}
         onRemoteUpdate={accessMode === 'open' ? onRemoteUpdate : undefined}
+        onRemoteCursor={accessMode === 'open' ? onRemoteCursor : undefined}
       />
     </div>
   )

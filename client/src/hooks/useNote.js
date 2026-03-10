@@ -34,6 +34,7 @@ export function useNote(slug) {
   const timerRef = useRef(null);
   const wsRef = useRef(null);
   const onRemoteUpdateRef = useRef(null);
+  const onRemoteCursorRef = useRef(null);
 
   const fetchNote = useCallback(async () => {
     try {
@@ -117,6 +118,10 @@ export function useNote(slug) {
           if (onRemoteUpdateRef.current) {
             onRemoteUpdateRef.current(msg.content);
           }
+        } else if (msg.type === "cursor") {
+          if (onRemoteCursorRef.current) {
+            onRemoteCursorRef.current(msg);
+          }
         } else if (msg.type === "users") {
           console.log("👥 Users update:", msg.count);
           setCollaborators(msg.users || []);
@@ -130,6 +135,10 @@ export function useNote(slug) {
       console.log("🔌 WebSocket disconnected");
       setConnected(false);
       setCollaborators([]);
+      // Clear all remote cursors
+      if (onRemoteCursorRef.current) {
+        onRemoteCursorRef.current({ type: "clear" });
+      }
     };
 
     ws.onerror = (err) => {
@@ -141,6 +150,9 @@ export function useNote(slug) {
       wsRef.current = null;
       setConnected(false);
       setCollaborators([]);
+      if (onRemoteCursorRef.current) {
+        onRemoteCursorRef.current({ type: "clear" });
+      }
     };
   }, [slug, accessMode, loading]);
 
@@ -149,10 +161,22 @@ export function useNote(slug) {
     onRemoteUpdateRef.current = callback;
   }, []);
 
+  // Function to register callback for remote cursor updates
+  const onRemoteCursor = useCallback((callback) => {
+    onRemoteCursorRef.current = callback;
+  }, []);
+
   // Function to send content via WebSocket
   const sendContent = useCallback((content) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "content", content }));
+    }
+  }, []);
+
+  // Function to send cursor position via WebSocket
+  const sendCursor = useCallback((cursor) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "cursor", cursor }));
     }
   }, []);
 
@@ -250,7 +274,9 @@ export function useNote(slug) {
     connected,
     save,
     sendContent,
+    sendCursor,
     onRemoteUpdate,
+    onRemoteCursor,
     verifyPassword,
     toggleAccessMode,
     handleRename,

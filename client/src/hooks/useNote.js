@@ -207,6 +207,15 @@ export function useNote(slug) {
     console.log(`🔄 Toggling access mode: ${accessMode} → ${newMode}`);
 
     try {
+      // Ensure the note exists in the database before changing access mode.
+      // New notes only live in localStorage until the first explicit save, so
+      // the access-mode endpoint would return 404 and the toggle would fail
+      // silently. Persist the note first when it hasn't been saved yet.
+      if (!note?.created_at) {
+        const content = loadFromLocal(slug) ?? note?.content ?? {};
+        await api.saveNote(slug, content);
+      }
+
       await api.setAccessMode(slug, newMode);
       setAccessMode(newMode);
       console.log(`✅ Access mode: ${newMode}`);
@@ -215,7 +224,7 @@ export function useNote(slug) {
       console.error("❌ Toggle access mode failed:", err);
       return false;
     }
-  }, [slug, accessMode]);
+  }, [slug, accessMode, note]);
 
   const handleRename = useCallback(
     async (newSlug) => {

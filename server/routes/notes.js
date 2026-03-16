@@ -1,6 +1,12 @@
 import { Router } from "express";
 import bcrypt from "bcrypt";
 import pool from "../db.js";
+import {
+  closeCollaborationRoom,
+  getCollaboratorCount,
+  getLiveNoteContent,
+  persistLiveNoteContent,
+} from "../websocket.js";
 
 const router = Router();
 
@@ -81,9 +87,12 @@ router.get("/:slug", async (req, res) => {
     // - Open notes: anyone can edit (via WebSocket collaboration)
     const can_edit = note.access_mode === "open" || is_owner;
 
+    const liveContent =
+      note.access_mode === "open" ? getLiveNoteContent(slug) : null;
+
     res.json({
       slug: note.slug,
-      content: note.content,
+      content: liveContent || note.content,
       has_password: note.has_password,
       needs_password: false,
       access_mode: note.access_mode,
@@ -203,7 +212,9 @@ router.delete("/:slug", async (req, res) => {
       });
     }
 
+    await persistLiveNoteContent(slug);
     await pool.query("DELETE FROM notes WHERE slug = $1", [slug]);
+    closeCollaborationRoom(slug, 1008, "Note deleted");
     res.json({ success: true });
   } catch (err) {
     console.error("DELETE /notes/:slug error:", err);
@@ -318,11 +329,13 @@ router.post("/:slug/rename", async (req, res) => {
       return res.status(409).json({ error: "Esse endereco ja esta em uso" });
     }
 
+    await persistLiveNoteContent(slug);
     const result = await pool.query(
       "UPDATE notes SET slug = $1, updated_at = NOW() WHERE slug = $2 RETURNING id, slug",
       [newSlug, slug],
     );
 
+    closeCollaborationRoom(slug, 1008, "Note renamed");
     res.json(result.rows[0]);
   } catch (err) {
     console.error("POST /notes/:slug/rename error:", err);
@@ -357,11 +370,19 @@ router.post("/:slug/access-mode", async (req, res) => {
       });
     }
 
+    if (mode === "private") {
+      await persistLiveNoteContent(slug);
+    }
+
     await pool.query(
       "UPDATE notes SET access_mode = $1, updated_at = NOW() WHERE slug = $2",
       [mode, slug],
     );
     console.log(`🔄 Note ${slug} access mode changed to: ${mode}`);
+
+    if (mode === "private") {
+      closeCollaborationRoom(slug, 1008, "Note is now private");
+    }
 
     res.json({ success: true, access_mode: mode });
   } catch (err) {
@@ -374,9 +395,7 @@ router.post("/:slug/access-mode", async (req, res) => {
 router.get("/:slug/collaborators", async (req, res) => {
   try {
     const { slug } = req.params;
-    // This will be updated by the WebSocket handler
-    // For now return placeholder - actual count comes from WebSocket
-    res.json({ count: 0 });
+    res.json({ count: getCollaboratorCount(slug) });
   } catch (err) {
     console.error("GET /notes/:slug/collaborators error:", err);
     res.status(500).json({ error: "Erro interno" });

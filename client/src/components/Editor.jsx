@@ -6,25 +6,28 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { common, createLowlight } from 'lowlight'
 import { useEffect, useRef } from 'react'
 
 const lowlight = createLowlight(common)
 
-export default function Editor({ 
-  content, 
-  onUpdate, 
-  onEditorReady, 
+export default function Editor({
+  content,
+  onUpdate,
+  onEditorReady,
   editable = true,
-  onRemoteUpdate,
-  sendContent,
+  ydoc = null,
+  provider = null,
+  user = null,
 }) {
   const readyRef = useRef(false)
-  const isRemoteUpdateRef = useRef(false)
 
   const extensions = [
     StarterKit.configure({
       codeBlock: false,
+      history: ydoc ? false : undefined,
     }),
     Underline,
     Highlight,
@@ -38,31 +41,53 @@ export default function Editor({
     }),
   ]
 
-  const editor = useEditor({
-    extensions,
-    content: content || '',
-    editable,
-    onCreate: () => {
-      setTimeout(() => {
-        readyRef.current = true
-      }, 100)
-    },
-    onUpdate: ({ editor }) => {
-      if (readyRef.current && !isRemoteUpdateRef.current) {
-        const json = editor.getJSON()
-        onUpdate(json)
-        // Send to WebSocket if available
-        if (sendContent) {
-          sendContent(json)
+  if (ydoc && provider) {
+    extensions.push(
+      Collaboration.configure({
+        document: ydoc,
+      }),
+      CollaborationCursor.configure({
+        provider,
+        user: user || {
+          name: 'Anônimo',
+          color: '#958DF1',
+        },
+      }),
+    )
+  }
+
+  const editor = useEditor(
+    {
+      extensions,
+      content: ydoc ? undefined : (content || ''),
+      editable,
+      onCreate: () => {
+        if (!ydoc) {
+          setTimeout(() => {
+            readyRef.current = true
+          }, 100)
         }
-      }
-    },
-    editorProps: {
-      attributes: {
-        class: 'tiptap',
+      },
+      onUpdate: ({ editor }) => {
+        const json = editor.getJSON()
+
+        if (ydoc) {
+          onUpdate(json)
+          return
+        }
+
+        if (readyRef.current) {
+          onUpdate(json)
+        }
+      },
+      editorProps: {
+        attributes: {
+          class: 'tiptap',
+        },
       },
     },
-  })
+    [editable, ydoc, provider],
+  )
 
   useEffect(() => {
     if (editor) {
@@ -76,29 +101,17 @@ export default function Editor({
     }
   }, [editor, editable])
 
-  // Register for remote updates
   useEffect(() => {
-    if (onRemoteUpdate && editor) {
-      onRemoteUpdate((remoteContent) => {
-        if (editor && !editor.isDestroyed && remoteContent) {
-          const currentContent = JSON.stringify(editor.getJSON())
-          const newContent = JSON.stringify(remoteContent)
-          if (currentContent !== newContent) {
-            isRemoteUpdateRef.current = true
-            editor.commands.setContent(remoteContent, false)
-            setTimeout(() => {
-              isRemoteUpdateRef.current = false
-            }, 50)
-          }
-        }
-      })
+    if (provider && user) {
+      provider.awareness.setLocalStateField('user', user)
     }
-  }, [onRemoteUpdate, editor])
+  }, [provider, user])
 
   useEffect(() => {
-    if (editor && content && !editor.isDestroyed && content.type) {
+    if (editor && content && !editor.isDestroyed && content.type && !ydoc) {
       const currentContent = JSON.stringify(editor.getJSON())
       const newContent = JSON.stringify(content)
+
       if (currentContent !== newContent) {
         readyRef.current = false
         editor.commands.setContent(content, false)
@@ -107,7 +120,7 @@ export default function Editor({
         }, 100)
       }
     }
-  }, [editor, content])
+  }, [editor, content, ydoc])
 
   return <EditorContent editor={editor} className="flex-1" />
 }

@@ -8,6 +8,7 @@ import NoteMenu from '../components/NoteMenu'
 import ThemeToggle from '../components/ThemeToggle'
 import PasswordPrompt from '../components/PasswordPrompt'
 import CollaborationBar from '../components/CollaborationBar'
+import { getDeviceId } from '../lib/api'
 
 export default function NotePage() {
   const { slug } = useParams()
@@ -17,12 +18,20 @@ export default function NotePage() {
     note, loading, error, saving, needsPassword,
     canEdit, isOwner, accessMode,
     collaborators, connected,
-    save, sendContent, onRemoteUpdate,
+    save, ydoc, provider,
     verifyPassword, toggleAccessMode,
     handleRename, handleDelete,
     refetch,
   } = useNote(slug)
   const [editor, setEditor] = useState(null)
+
+  const collaborationUser = user ? {
+    name: user.name,
+    color: getUserColor(user.id),
+  } : {
+    name: 'Anônimo',
+    color: getUserColor(getDeviceId()),
+  }
 
   if (loading) {
     return (
@@ -83,7 +92,7 @@ export default function NotePage() {
               isOwner={isOwner}
               canEdit={canEdit}
               accessMode={accessMode}
-              noteContent={note?.content}
+              noteContent={editor?.getJSON?.() || note?.content}
               onDelete={async () => { await handleDelete(); navigate('/') }}
               onRename={async (newSlug) => { await handleRename(newSlug); navigate(`/${newSlug}`) }}
               onToggleAccessMode={toggleAccessMode}
@@ -103,9 +112,21 @@ export default function NotePage() {
         onUpdate={save}
         onEditorReady={setEditor}
         editable={canEdit}
-        sendContent={accessMode === 'open' ? sendContent : undefined}
-        onRemoteUpdate={accessMode === 'open' ? onRemoteUpdate : undefined}
+        ydoc={accessMode === 'open' ? ydoc : null}
+        provider={accessMode === 'open' ? provider : null}
+        user={collaborationUser}
       />
     </div>
   )
+}
+
+function getUserColor(seed) {
+  const colors = [
+    '#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8',
+    '#94FADB', '#B9F18D', '#C3E2C2', '#EAECCC', '#AFC8AD',
+  ]
+
+  const value = String(seed)
+  const hash = value.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return colors[hash % colors.length]
 }

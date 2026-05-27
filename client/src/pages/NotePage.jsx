@@ -57,7 +57,6 @@ export default function NotePage() {
         title={slug}
         status={(
           <>
-            <span className="hidden max-w-[180px] truncate text-sm text-zinc-400 md:inline">/{slug}</span>
             {accessMode === 'open' && (
               <CollaborationBar
                 connected={connected}

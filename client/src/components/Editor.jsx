@@ -18,7 +18,7 @@ const DEFAULT_FILES = {
 }
 
 const DEFAULT_SETTINGS = {
-  theme: 'dracula',
+  theme: 'omni',
   lineNumbers: true,
   wordWrap: true,
   minimap: false,
@@ -30,12 +30,12 @@ const EDITOR_THEMES = {
     label: 'Dracula',
     ui: {
       page: '#282a36',
-      chrome: '#191a21',
+      chrome: '#21222c',
       border: '#44475a',
       text: '#f8f8f2',
-      muted: '#8f93a6',
+      muted: '#6272a4',
       accent: '#bd93f9',
-      pill: '#343746',
+      pill: '#44475a',
       panel: '#21222c',
     },
     monaco: {
@@ -47,9 +47,14 @@ const EDITOR_THEMES = {
         'editorLineNumber.foreground': '#6272a4',
         'editorLineNumber.activeForeground': '#f8f8f2',
         'editor.selectionBackground': '#44475a',
-        'editor.lineHighlightBackground': '#44475a55',
+        'editor.selectionHighlightBackground': '#424450',
+        'editor.lineHighlightBackground': '#44475a75',
         'editor.lineHighlightBorder': '#282a36',
-        'editorCursor.foreground': '#f8f8f2',
+        'editorCursor.foreground': '#f8f8f0',
+        'editor.findMatchBackground': '#ffb86c80',
+        'editor.findMatchHighlightBackground': '#f8f8f240',
+        'editor.wordHighlightBackground': '#bd93f950',
+        'editor.wordHighlightStrongBackground': '#50fa7b50',
         'editorWhitespace.foreground': '#FFFFFF1A',
         'editorIndentGuide.background': '#FFFFFF1A',
         'editorIndentGuide.activeBackground': '#f8f8f245',
@@ -61,10 +66,16 @@ const EDITOR_THEMES = {
         { token: 'comment', foreground: '6272A4', fontStyle: 'italic' },
         { token: 'keyword', foreground: 'FF79C6' },
         { token: 'string', foreground: 'F1FA8C' },
+        { token: 'regexp', foreground: 'F1FA8C' },
         { token: 'number', foreground: 'BD93F9' },
         { token: 'type', foreground: '8BE9FD' },
+        { token: 'delimiter', foreground: 'F8F8F2' },
+        { token: 'operator', foreground: 'FF79C6' },
+        { token: 'function', foreground: '50FA7B' },
+        { token: 'variable', foreground: 'F8F8F2' },
         { token: 'tag', foreground: 'FF79C6' },
         { token: 'attribute.name', foreground: '50FA7B' },
+        { token: 'attribute.value', foreground: 'F1FA8C' },
       ],
     },
   },
@@ -102,7 +113,7 @@ const EDITOR_THEMES = {
       rules: [
         { token: 'comment', foreground: '6C6783', fontStyle: 'italic' },
         { token: 'keyword', foreground: 'FF79C6' },
-        { token: 'string', foreground: 'E7DE79' },
+        { token: 'string', foreground: 'e7de79' },
         { token: 'number', foreground: 'E89E64' },
         { token: 'type', foreground: '78D1E1' },
         { token: 'tag', foreground: '67E480' },
@@ -219,7 +230,7 @@ function normalizeContent(content) {
   }
 }
 
-function SettingsPanel({ settings, onChange, language, onLanguageChange, theme }) {
+function SettingsPanel({ settings, onChange, onClose, language, onLanguageChange, theme }) {
   const toggle = key => onChange({ ...settings, [key]: !settings[key] })
   const setFontSize = value => onChange({ ...settings, fontSize: Number(value) })
   const setTheme = value => onChange({ ...settings, theme: value })
@@ -233,7 +244,7 @@ function SettingsPanel({ settings, onChange, language, onLanguageChange, theme }
         <h2 className="text-sm font-medium">Editor</h2>
         <button
           type="button"
-          onClick={(event) => event.currentTarget.closest('details')?.removeAttribute('open')}
+          onClick={onClose}
           className="opacity-60 hover:opacity-100"
         >
           x
@@ -308,6 +319,7 @@ export default function Editor({
   const [activeLanguage, setActiveLanguage] = useState(initialContent.activeTab)
   const [files, setFiles] = useState(initialContent.files)
   const [settings, setSettings] = useState(loadSettings)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const editorRef = useRef(null)
   const contentRef = useRef({ type: 'fronteditor', activeTab: activeLanguage, files })
   const activeLanguageRef = useRef(activeLanguage)
@@ -387,29 +399,30 @@ export default function Editor({
         className="flex h-[72px] shrink-0 items-center border-b px-4 sm:px-8"
         style={{ background: currentTheme.ui.chrome, borderColor: currentTheme.ui.border }}
       >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="truncate text-lg font-medium sm:text-xl">
-              {title}
-            </div>
-            <span
-              className="rounded px-1.5 py-0.5 font-mono text-xs"
-              style={{
-                background: currentTheme.ui.pill,
-                color: currentTheme.ui.muted,
-              }}
-            >
-              .{currentLanguage.extension}
-            </span>
+        <div className="flex min-w-0 items-center gap-3">
+          <a
+            href="/"
+            className="shrink-0 font-mono text-2xl font-bold tracking-normal"
+            style={{ color: currentTheme.ui.accent }}
+          >
+            a.it
+          </a>
+          <span className="text-xl" style={{ color: currentTheme.ui.border }}>
+            →
+          </span>
+          <div className="truncate text-lg font-medium sm:text-xl" style={{ color: currentTheme.ui.muted }}>
+            {title}
           </div>
         </div>
 
         <div className="ml-auto flex items-center gap-3">
           {status}
           {actions}
-          <details className="relative">
-            <summary
-              className="list-none rounded-md p-2 transition hover:bg-white/10 [&::-webkit-details-marker]:hidden"
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(value => !value)}
+              className="rounded-md p-2 transition hover:bg-white/10"
               style={{ color: currentTheme.ui.muted }}
               title="Editor settings"
             >
@@ -417,15 +430,18 @@ export default function Editor({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.607 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-            </summary>
-            <SettingsPanel
-              settings={settings}
-              onChange={setSettings}
-              language={activeLanguage}
-              onLanguageChange={handleLanguageChange}
-              theme={currentTheme}
-            />
-          </details>
+            </button>
+            {settingsOpen && (
+              <SettingsPanel
+                settings={settings}
+                onChange={setSettings}
+                onClose={() => setSettingsOpen(false)}
+                language={activeLanguage}
+                onLanguageChange={handleLanguageChange}
+                theme={currentTheme}
+              />
+            )}
+          </div>
         </div>
       </nav>
 

@@ -22,6 +22,10 @@ function loadFromLocal(slug) {
   }
 }
 
+function isLocalApiUnavailable(err) {
+  return err.status === 0 || err.error?.includes("API local indisponivel");
+}
+
 function getCollaborators(provider) {
   return Array.from(provider.awareness.getStates().entries())
     .map(([id, state]) => ({
@@ -86,7 +90,7 @@ export function useNote(slug) {
         setAccessMode(data.access_mode ?? "private");
       }
     } catch (err) {
-      if (err.status === 404) {
+      if (err.status === 404 || isLocalApiUnavailable(err)) {
         const local = loadFromLocal(slug);
         setNeedsPassword(false);
         setNote({ slug, content: local });
@@ -181,10 +185,6 @@ export function useNote(slug) {
       setNote((current) =>
         current ? { ...current, content } : current,
       );
-
-      if (providerRef.current) {
-        return;
-      }
 
       if (timerRef.current) {
         clearTimeout(timerRef.current);

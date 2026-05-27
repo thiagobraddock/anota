@@ -34,7 +34,8 @@ const EDITOR_THEMES = {
       border: '#44475a',
       text: '#f8f8f2',
       muted: '#6272a4',
-      accent: '#bd93f9',
+      brandText: '#f8f8f2',
+      brandAccent: '#50fa7b',
       pill: '#44475a',
       panel: '#21222c',
     },
@@ -87,7 +88,8 @@ const EDITOR_THEMES = {
       border: '#252131',
       text: '#e1e1e6',
       muted: '#8d84b0',
-      accent: '#67e480',
+      brandText: '#e1e1e6',
+      brandAccent: '#67e480',
       pill: '#2a2637',
       panel: '#11111b',
     },
@@ -129,7 +131,8 @@ const EDITOR_THEMES = {
       border: '#d8dee9',
       text: '#1f2937',
       muted: '#64748b',
-      accent: '#2563eb',
+      brandText: '#0f172a',
+      brandAccent: '#16a34a',
       pill: '#e8eef7',
       panel: '#ffffff',
     },
@@ -403,9 +406,9 @@ export default function Editor({
           <a
             href="/"
             className="shrink-0 font-mono text-2xl font-bold tracking-normal"
-            style={{ color: currentTheme.ui.accent }}
           >
-            a.it
+            <span style={{ color: currentTheme.ui.brandText }}>a</span>
+            <span style={{ color: currentTheme.ui.brandAccent }}>.it</span>
           </a>
           <span className="text-xl" style={{ color: currentTheme.ui.border }}>
             →

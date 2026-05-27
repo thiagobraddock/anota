@@ -8,6 +8,13 @@
     "dev": "node --watch index.js"
   },
   "dependencies": {
+    "@tiptap/core": "^2.27.2",
+    "@tiptap/extension-code-block-lowlight": "^2.27.2",
+    "@tiptap/extension-highlight": "^2.27.2",
+    "@tiptap/extension-task-item": "^2.27.2",
+    "@tiptap/extension-task-list": "^2.27.2",
+    "@tiptap/extension-underline": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^12.6.2",
     "connect-pg-simple": "^10.0.0",
@@ -15,9 +22,14 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
+    "lib0": "^0.2.99",
+    "lowlight": "^3.2.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.13.1",
-    "ws": "^8.19.0"
+    "ws": "^8.19.0",
+    "y-prosemirror": "^1.2.12",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.18"
   }
 }

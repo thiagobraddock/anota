@@ -19,11 +19,39 @@ async function request(path, options = {}) {
     ...options.headers,
   };
 
-  const res = await fetch(`${BASE}${path}`, {
-    headers,
-    ...options,
-  });
-  const data = await res.json();
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers,
+      ...options,
+    });
+  } catch {
+    throw {
+      status: 0,
+      error:
+        "API local indisponivel. Inicie o backend e o Postgres com npm run dev:docker.",
+    };
+  }
+
+  const text = await res.text();
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {
+      error:
+        res.status >= 500
+          ? "API local indisponivel. Verifique se o backend esta rodando na porta 3000."
+          : "Resposta invalida da API.",
+    };
+  }
+
+  if (res.status >= 500 && !data.error) {
+    data.error =
+      "API local indisponivel. Verifique se o backend esta rodando na porta 3000.";
+  }
+
   if (!res.ok) throw { status: res.status, ...data };
   return data;
 }

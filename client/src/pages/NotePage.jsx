@@ -1,23 +1,19 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useNote } from '../hooks/useNote'
-import { useAuth } from '../hooks/useAuth'
 import Editor from '../components/Editor'
-import Toolbar from '../components/Toolbar'
 import NoteMenu from '../components/NoteMenu'
-import ThemeToggle from '../components/ThemeToggle'
 import PasswordPrompt from '../components/PasswordPrompt'
 import CollaborationBar from '../components/CollaborationBar'
 
 export default function NotePage() {
   const { slug } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
   const {
     note, loading, error, saving, needsPassword,
     canEdit, isOwner, accessMode,
     collaborators, connected,
-    save, sendContent, sendCursor, onRemoteUpdate, onRemoteCursor,
+    save,
     verifyPassword, toggleAccessMode,
     handleRename, handleDelete,
     refetch,
@@ -52,62 +48,42 @@ export default function NotePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-void">
-      <header className="border-b border-glyph bg-abyss sticky top-0 z-10">
-        {/* Row 1: Navigation + Actions */}
-        <div className="flex items-center justify-between px-3 py-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <a href="/" className="text-base sm:text-sm font-bold text-terminal hover:text-terminal-dim transition shrink-0">
-              a.it
-            </a>
-            <span className="text-glyph">&rarr;</span>
-            <span className="text-shade text-sm sm:text-xs truncate max-w-[120px] sm:max-w-none">{slug}</span>
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-2 shrink-0">
-            {accessMode === 'open' && (
-              <CollaborationBar 
-                connected={connected} 
-                collaborators={collaborators} 
-              />
-            )}
-            {saving && canEdit && (
-              <span className="flex items-center gap-1.5 text-xs text-shade">
-                <span className="w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full bg-terminal animate-glow-pulse" />
-                <span className="hidden sm:inline">sync</span>
-              </span>
-            )}
-            <ThemeToggle />
-            <NoteMenu
-              slug={slug}
-              isOwner={isOwner}
-              canEdit={canEdit}
-              accessMode={accessMode}
-              noteContent={note?.content}
-              onDelete={async () => { await handleDelete(); navigate('/') }}
-              onRename={async (newSlug) => { await handleRename(newSlug); navigate(`/${newSlug}`) }}
-              onToggleAccessMode={toggleAccessMode}
-              refetch={refetch}
-            />
-          </div>
-        </div>
-
-        {/* Row 2: Toolbar */}
-        <div className="px-2 pb-2 sm:px-3">
-          <Toolbar editor={editor} canEdit={canEdit} />
-        </div>
-      </header>
-
+    <div className="h-screen w-screen overflow-hidden bg-[#191622]">
       <Editor
         content={note?.content}
         onUpdate={save}
         onEditorReady={setEditor}
         editable={canEdit}
-        collaborators={accessMode === 'open' ? collaborators : []}
-        sendContent={accessMode === 'open' ? sendContent : undefined}
-        sendCursor={accessMode === 'open' ? sendCursor : undefined}
-        onRemoteUpdate={accessMode === 'open' ? onRemoteUpdate : undefined}
-        onRemoteCursor={accessMode === 'open' ? onRemoteCursor : undefined}
+        title={slug}
+        status={(
+          <>
+            {accessMode === 'open' && (
+              <CollaborationBar
+                connected={connected}
+                collaborators={collaborators}
+              />
+            )}
+            {saving && canEdit && (
+              <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <span className="h-2 w-2 rounded-full bg-[#67e480] animate-glow-pulse" />
+                sync
+              </span>
+            )}
+          </>
+        )}
+        actions={(
+          <NoteMenu
+            slug={slug}
+            isOwner={isOwner}
+            canEdit={canEdit}
+            accessMode={accessMode}
+            noteContent={editor?.getJSON?.() || note?.content}
+            onDelete={async () => { await handleDelete(); navigate('/') }}
+            onRename={async (newSlug) => { await handleRename(newSlug); navigate(`/${newSlug}`) }}
+            onToggleAccessMode={toggleAccessMode}
+            refetch={refetch}
+          />
+        )}
       />
     </div>
   )

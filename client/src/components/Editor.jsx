@@ -10,12 +10,8 @@ const LANGUAGE_OPTIONS = [
   { id: 'css', label: 'CSS', shortLabel: 'css', language: 'css', extension: 'css' },
 ]
 
-const DEFAULT_FILES = {
-  markdown: '',
-  javascript: '',
-  html: '',
-  css: '',
-}
+const DEFAULT_LANGUAGE = 'markdown'
+const TOUCH_EDITOR_QUERY = '(pointer: coarse), (hover: none)'
 
 const DEFAULT_SETTINGS = {
   theme: 'omni',
@@ -209,28 +205,88 @@ function tiptapToMarkdown(content) {
     .join('\n\n')
 }
 
+function getValidLanguage(language) {
+  return LANGUAGE_OPTIONS.some(option => option.id === language) ? language : DEFAULT_LANGUAGE
+}
+
+function getLegacyFronteditorValue(content, activeLanguage) {
+  if (!content?.files || typeof content.files !== 'object') {
+    return ''
+  }
+
+  if (typeof content.files[activeLanguage] === 'string' && content.files[activeLanguage]) {
+    return content.files[activeLanguage]
+  }
+
+  const firstFileWithText = LANGUAGE_OPTIONS
+    .map(option => content.files[option.id])
+    .find(value => typeof value === 'string' && value.length > 0)
+
+  return firstFileWithText || ''
+}
+
 function normalizeContent(content) {
-  if (content?.type === 'fronteditor' && content.files) {
+  if (content?.type === 'fronteditor') {
+    const activeLanguage = getValidLanguage(content.activeTab)
+
     return {
-      activeTab: content.activeTab || 'markdown',
-      files: { ...DEFAULT_FILES, ...content.files },
+      activeLanguage,
+      value: typeof content.value === 'string'
+        ? content.value
+        : getLegacyFronteditorValue(content, activeLanguage),
     }
   }
 
   if (typeof content === 'string') {
     return {
-      activeTab: 'markdown',
-      files: { ...DEFAULT_FILES, markdown: content },
+      activeLanguage: DEFAULT_LANGUAGE,
+      value: content,
     }
   }
 
   return {
-    activeTab: 'markdown',
-    files: {
-      ...DEFAULT_FILES,
-      markdown: tiptapToMarkdown(content),
-    },
+    activeLanguage: DEFAULT_LANGUAGE,
+    value: tiptapToMarkdown(content),
   }
+}
+
+function createEditorContent(activeLanguage, value) {
+  return {
+    type: 'fronteditor',
+    activeTab: activeLanguage,
+    value,
+  }
+}
+
+function getInitialTouchEditorPreference() {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia(TOUCH_EDITOR_QUERY).matches
+}
+
+function usePrefersTouchEditor() {
+  const [prefersTouchEditor, setPrefersTouchEditor] = useState(getInitialTouchEditorPreference)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined
+    }
+
+    const media = window.matchMedia(TOUCH_EDITOR_QUERY)
+    const handleChange = event => setPrefersTouchEditor(event.matches)
+
+    setPrefersTouchEditor(media.matches)
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handleChange)
+      return () => media.removeEventListener('change', handleChange)
+    }
+
+    media.addListener(handleChange)
+    return () => media.removeListener(handleChange)
+  }, [])
+
+  return prefersTouchEditor
 }
 
 function SettingsPanel({ settings, onChange, onClose, language, onLanguageChange, theme }) {
@@ -309,6 +365,50 @@ function SettingsPanel({ settings, onChange, onClose, language, onLanguageChange
   )
 }
 
+function TouchEditor({ value, onChange, onSave, editable, settings, theme }) {
+  const nativeFontSize = Math.max(settings.fontSize, 16)
+  const editorColors = theme.monaco.colors
+
+  function handleKeyDown(event) {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault()
+      onSave()
+    }
+  }
+
+  return (
+    <textarea
+      aria-label="Note editor"
+      autoCapitalize="off"
+      autoComplete="off"
+      autoCorrect="off"
+      className="h-full w-full resize-none border-0 bg-transparent outline-none"
+      readOnly={!editable}
+      spellCheck={false}
+      value={value}
+      wrap={settings.wordWrap ? 'soft' : 'off'}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={handleKeyDown}
+      style={{
+        color: editorColors['editor.foreground'],
+        caretColor: editorColors['editorCursor.foreground'],
+        fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+        fontSize: nativeFontSize,
+        lineHeight: `${Math.round(nativeFontSize * 1.65)}px`,
+        overflowWrap: settings.wordWrap ? 'break-word' : 'normal',
+        padding: '22px 18px',
+        tabSize: 2,
+        touchAction: 'auto',
+        userSelect: 'text',
+        WebkitOverflowScrolling: 'touch',
+        WebkitTextSizeAdjust: '100%',
+        WebkitUserSelect: 'text',
+        whiteSpace: settings.wordWrap ? 'pre-wrap' : 'pre',
+      }}
+    />
+  )
+}
+
 export default function Editor({
   content,
   onUpdate,
@@ -319,24 +419,25 @@ export default function Editor({
   status = null,
 }) {
   const initialContent = useMemo(() => normalizeContent(content), [content])
-  const [activeLanguage, setActiveLanguage] = useState(initialContent.activeTab)
-  const [files, setFiles] = useState(initialContent.files)
+  const [activeLanguage, setActiveLanguage] = useState(initialContent.activeLanguage)
+  const [value, setValue] = useState(initialContent.value)
   const [settings, setSettings] = useState(loadSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const prefersTouchEditor = usePrefersTouchEditor()
   const editorRef = useRef(null)
-  const contentRef = useRef({ type: 'fronteditor', activeTab: activeLanguage, files })
-  const activeLanguageRef = useRef(activeLanguage)
+  const contentRef = useRef(createEditorContent(activeLanguage, value))
+  const valueRef = useRef(value)
 
   useEffect(() => {
     const normalized = normalizeContent(content)
-    setActiveLanguage(normalized.activeTab)
-    setFiles(normalized.files)
+    setActiveLanguage(normalized.activeLanguage)
+    setValue(normalized.value)
   }, [content])
 
   useEffect(() => {
-    contentRef.current = { type: 'fronteditor', activeTab: activeLanguage, files }
-    activeLanguageRef.current = activeLanguage
-  }, [activeLanguage, files])
+    contentRef.current = createEditorContent(activeLanguage, value)
+    valueRef.current = value
+  }, [activeLanguage, value])
 
   useEffect(() => {
     saveSettings(settings)
@@ -345,7 +446,7 @@ export default function Editor({
   useEffect(() => {
     onEditorReady?.({
       getJSON: () => contentRef.current,
-      getValue: () => contentRef.current.files[activeLanguageRef.current] || '',
+      getValue: () => valueRef.current,
     })
   }, [onEditorReady])
 
@@ -362,27 +463,16 @@ export default function Editor({
   }
 
   function handleChange(value) {
-    const nextFiles = {
-      ...files,
-      [activeLanguage]: value || '',
-    }
-    const nextContent = {
-      type: 'fronteditor',
-      activeTab: activeLanguage,
-      files: nextFiles,
-    }
+    const nextValue = value || ''
+    const nextContent = createEditorContent(activeLanguage, nextValue)
 
-    setFiles(nextFiles)
+    setValue(nextValue)
     contentRef.current = nextContent
     onUpdate(nextContent)
   }
 
   function handleLanguageChange(nextLanguage) {
-    const nextContent = {
-      type: 'fronteditor',
-      activeTab: nextLanguage,
-      files,
-    }
+    const nextContent = createEditorContent(nextLanguage, value)
 
     setActiveLanguage(nextLanguage)
     contentRef.current = nextContent
@@ -449,35 +539,45 @@ export default function Editor({
       </nav>
 
       <main className="relative min-h-0 flex-1">
-        <MonacoEditor
-          key={currentLanguage.id}
-          className="h-full w-full"
-          language={currentLanguage.language}
-          path={`note.${currentLanguage.extension}`}
-          value={files[currentLanguage.id] || ''}
-          loading={<div className="p-6 text-zinc-400">Carregando editor...</div>}
-          onMount={handleMount}
-          onChange={handleChange}
-          options={{
-            readOnly: !editable,
-            minimap: { enabled: settings.minimap },
-            lineNumbers: settings.lineNumbers ? 'on' : 'off',
-            renderLineHighlight: 'gutter',
-            fontSize: settings.fontSize,
-            lineHeight: Math.round(settings.fontSize * 1.65),
-            fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
-            fontLigatures: true,
-            wordWrap: settings.wordWrap ? 'on' : 'off',
-            tabSize: 2,
-            mouseWheelZoom: true,
-            automaticLayout: true,
-            scrollBeyondLastLine: true,
-            padding: { top: 22, bottom: 22 },
-            bracketPairColorization: { enabled: true },
-            guides: { indentation: true },
-          }}
-          theme={`anota-${currentThemeId}`}
-        />
+        {prefersTouchEditor ? (
+          <TouchEditor
+            value={value}
+            onChange={handleChange}
+            onSave={() => onUpdate(contentRef.current)}
+            editable={editable}
+            settings={settings}
+            theme={currentTheme}
+          />
+        ) : (
+          <MonacoEditor
+            className="h-full w-full"
+            language={currentLanguage.language}
+            path="note"
+            value={value}
+            loading={<div className="p-6 text-zinc-400">Carregando editor...</div>}
+            onMount={handleMount}
+            onChange={handleChange}
+            options={{
+              readOnly: !editable,
+              minimap: { enabled: settings.minimap },
+              lineNumbers: settings.lineNumbers ? 'on' : 'off',
+              renderLineHighlight: 'gutter',
+              fontSize: settings.fontSize,
+              lineHeight: Math.round(settings.fontSize * 1.65),
+              fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+              fontLigatures: true,
+              wordWrap: settings.wordWrap ? 'on' : 'off',
+              tabSize: 2,
+              mouseWheelZoom: true,
+              automaticLayout: true,
+              scrollBeyondLastLine: true,
+              padding: { top: 22, bottom: 22 },
+              bracketPairColorization: { enabled: true },
+              guides: { indentation: true },
+            }}
+            theme={`anota-${currentThemeId}`}
+          />
+        )}
       </main>
     </section>
   )

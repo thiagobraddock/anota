@@ -35,6 +35,26 @@ function getCollaborators(provider) {
     .filter((user) => user.name && user.color);
 }
 
+function getUserColor(seed) {
+  const colors = [
+    "#958DF1", "#F98181", "#FBBC88", "#FAF594", "#70CFF8",
+    "#94FADB", "#B9F18D", "#C3E2C2", "#EAECCC", "#AFC8AD",
+  ];
+
+  const value = String(seed);
+  const hash = value.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[hash % colors.length];
+}
+
+function getPresenceUser() {
+  const deviceId = getDeviceId();
+
+  return {
+    name: "Anônimo",
+    color: getUserColor(deviceId),
+  };
+}
+
 export function useNote(slug) {
   const [note, setNote] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -149,6 +169,7 @@ export function useNote(slug) {
     ydocRef.current = doc;
     setProvider(wsProvider);
     setYdoc(doc);
+    wsProvider.awareness.setLocalStateField("user", getPresenceUser());
     setCollaborators(getCollaborators(wsProvider));
 
     wsProvider.on("status", handleStatus);

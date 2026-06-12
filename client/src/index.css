@@ -213,6 +213,21 @@ body {
   margin: 0.1rem 0;
 }
 
+/* ========== Touch note editor (mobile/tablet) ========== */
+
+/*
+ * The touch editor draws the highlighted code in a backdrop layer behind a
+ * textarea with transparent text. Selection must keep the glyphs transparent
+ * (the colored backdrop shows through) instead of the global green ::selection.
+ */
+.touch-editor-input::selection {
+  background-color: var(--touch-editor-selection, rgba(108, 103, 131, 0.45));
+}
+
+.touch-editor-input--highlighted::selection {
+  color: transparent;
+}
+
 /* ========== Collaboration Cursors ========== */
 
 .collaboration-cursor__caret {

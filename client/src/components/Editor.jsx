@@ -13,12 +13,68 @@ const LANGUAGE_OPTIONS = [
 const DEFAULT_LANGUAGE = 'markdown'
 const TOUCH_EDITOR_QUERY = '(pointer: coarse), (hover: none)'
 
+// lowlight (highlight.js) grammar names for each language option
+const TOUCH_HIGHLIGHT_LANGUAGES = {
+  markdown: 'markdown',
+  javascript: 'javascript',
+  html: 'xml',
+  css: 'css',
+}
+const TOUCH_HIGHLIGHT_MAX_LENGTH = 50000
+
 const DEFAULT_SETTINGS = {
   theme: 'omni',
   lineNumbers: true,
   wordWrap: true,
   minimap: false,
   fontSize: 16,
+}
+
+function createHighlightPalette({ comment, keyword, string, number, type, func, tagName, attribute, foreground }) {
+  return {
+    comment: { color: comment, fontStyle: 'italic' },
+    quote: { color: comment, fontStyle: 'italic' },
+    meta: { color: comment },
+    doctag: { color: keyword },
+    keyword: { color: keyword },
+    operator: { color: keyword },
+    'selector-tag': { color: keyword },
+    'selector-pseudo': { color: keyword },
+    'variable.language': { color: keyword },
+    bullet: { color: keyword },
+    deletion: { color: keyword },
+    string: { color: string },
+    regexp: { color: string },
+    'meta.string': { color: string },
+    code: { color: string },
+    link: { color: string, textDecoration: 'underline' },
+    number: { color: number },
+    literal: { color: number },
+    symbol: { color: number },
+    type: { color: type },
+    built_in: { color: type },
+    property: { color: type },
+    'title.class': { color: type },
+    'title.class.inherited': { color: type },
+    title: { color: func },
+    'title.function': { color: func },
+    'title.function.invoke': { color: func },
+    addition: { color: func },
+    section: { color: func, fontWeight: 'bold' },
+    name: { color: tagName },
+    'selector-id': { color: tagName },
+    'selector-class': { color: tagName },
+    attr: { color: attribute },
+    attribute: { color: attribute },
+    'selector-attr': { color: attribute },
+    tag: { color: foreground },
+    params: { color: foreground },
+    variable: { color: foreground },
+    'template-variable': { color: foreground },
+    subst: { color: foreground },
+    strong: { fontWeight: 'bold' },
+    emphasis: { fontStyle: 'italic' },
+  }
 }
 
 const EDITOR_THEMES = {
@@ -35,6 +91,17 @@ const EDITOR_THEMES = {
       pill: '#44475a',
       panel: '#21222c',
     },
+    highlight: createHighlightPalette({
+      comment: '#6272a4',
+      keyword: '#ff79c6',
+      string: '#f1fa8c',
+      number: '#bd93f9',
+      type: '#8be9fd',
+      func: '#50fa7b',
+      tagName: '#ff79c6',
+      attribute: '#50fa7b',
+      foreground: '#f8f8f2',
+    }),
     monaco: {
       base: 'vs-dark',
       inherit: true,
@@ -89,6 +156,17 @@ const EDITOR_THEMES = {
       pill: '#2a2637',
       panel: '#11111b',
     },
+    highlight: createHighlightPalette({
+      comment: '#6c6783',
+      keyword: '#ff79c6',
+      string: '#e7de79',
+      number: '#e89e64',
+      type: '#78d1e1',
+      func: '#67e480',
+      tagName: '#67e480',
+      attribute: '#78d1e1',
+      foreground: '#e1e1e6',
+    }),
     monaco: {
       base: 'vs-dark',
       inherit: true,
@@ -132,6 +210,17 @@ const EDITOR_THEMES = {
       pill: '#e8eef7',
       panel: '#ffffff',
     },
+    highlight: createHighlightPalette({
+      comment: '#64748b',
+      keyword: '#7c3aed',
+      string: '#047857',
+      number: '#c2410c',
+      type: '#0369a1',
+      func: '#2563eb',
+      tagName: '#be123c',
+      attribute: '#2563eb',
+      foreground: '#1f2937',
+    }),
     monaco: {
       base: 'vs',
       inherit: true,
@@ -289,6 +378,68 @@ function usePrefersTouchEditor() {
   return prefersTouchEditor
 }
 
+let lowlightLoader = null
+
+function loadLowlight() {
+  if (!lowlightLoader) {
+    lowlightLoader = import('../lib/touchHighlight.js')
+      .then(module => module.lowlight)
+      .catch(() => null)
+  }
+  return lowlightLoader
+}
+
+function useLowlight() {
+  const [lowlight, setLowlight] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    loadLowlight().then((instance) => {
+      if (active && instance) setLowlight(() => instance)
+    })
+    return () => { active = false }
+  }, [])
+
+  return lowlight
+}
+
+function getTokenStyle(classNames, palette) {
+  const scopes = classNames
+    .filter(name => name !== 'hljs')
+    .map(name => String(name).replace(/^hljs-/, '').replace(/_+$/, ''))
+    .filter(Boolean)
+
+  if (!scopes.length) return undefined
+
+  const candidates = scopes.length > 1 ? [scopes.join('.'), ...scopes] : scopes
+
+  for (const candidate of candidates) {
+    if (palette[candidate]) return palette[candidate]
+  }
+
+  return undefined
+}
+
+function hastNodesToReact(nodes, palette, keyPrefix = 'hl') {
+  return nodes.map((node, index) => {
+    if (node.type === 'text') return node.value
+    if (node.type !== 'element') return null
+
+    const key = `${keyPrefix}-${index}`
+    const classNames = Array.isArray(node.properties?.className) ? node.properties.className : []
+
+    return (
+      <span key={key} style={getTokenStyle(classNames, palette)}>
+        {hastNodesToReact(node.children || [], palette, key)}
+      </span>
+    )
+  })
+}
+
+function withAlpha(hexColor, alphaHex) {
+  return /^#[0-9a-fA-F]{6}$/.test(hexColor || '') ? `${hexColor}${alphaHex}` : hexColor
+}
+
 function SettingsPanel({ settings, onChange, onClose, language, onLanguageChange, theme }) {
   const toggle = key => onChange({ ...settings, [key]: !settings[key] })
   const setFontSize = value => onChange({ ...settings, fontSize: Number(value) })
@@ -365,9 +516,51 @@ function SettingsPanel({ settings, onChange, onClose, language, onLanguageChange
   )
 }
 
-function TouchEditor({ value, onChange, onSave, editable, settings, theme }) {
+function TouchEditor({ value, onChange, onSave, editable, settings, theme, language }) {
   const nativeFontSize = Math.max(settings.fontSize, 16)
   const editorColors = theme.monaco.colors
+  const textareaRef = useRef(null)
+  const backdropRef = useRef(null)
+  const lowlight = useLowlight()
+
+  const highlightedContent = useMemo(() => {
+    if (!lowlight || typeof value !== 'string' || value.length > TOUCH_HIGHLIGHT_MAX_LENGTH) {
+      return null
+    }
+
+    const grammar = TOUCH_HIGHLIGHT_LANGUAGES[language]
+    if (!grammar || !lowlight.registered(grammar)) {
+      return null
+    }
+
+    try {
+      return hastNodesToReact(lowlight.highlight(grammar, value).children, theme.highlight)
+    } catch {
+      return null
+    }
+  }, [lowlight, value, language, theme])
+
+  // The textarea keeps every native interaction (selection, caret, IME); the
+  // backdrop only mirrors its text with colors, so both layers must share the
+  // exact same text metrics to stay aligned glyph by glyph.
+  const sharedTextStyle = {
+    fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+    fontSize: nativeFontSize,
+    lineHeight: `${Math.round(nativeFontSize * 1.65)}px`,
+    overflowWrap: settings.wordWrap ? 'break-word' : 'normal',
+    padding: '22px 18px',
+    tabSize: 2,
+    WebkitTextSizeAdjust: '100%',
+    whiteSpace: settings.wordWrap ? 'pre-wrap' : 'pre',
+  }
+
+  useEffect(() => {
+    const textarea = textareaRef.current
+    const backdrop = backdropRef.current
+    if (!textarea || !backdrop) return
+    backdrop.scrollTop = textarea.scrollTop
+    backdrop.scrollLeft = textarea.scrollLeft
+  })
 
   function handleKeyDown(event) {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
@@ -376,36 +569,61 @@ function TouchEditor({ value, onChange, onSave, editable, settings, theme }) {
     }
   }
 
+  function handleScroll(event) {
+    const backdrop = backdropRef.current
+    if (!backdrop) return
+    backdrop.scrollTop = event.target.scrollTop
+    backdrop.scrollLeft = event.target.scrollLeft
+  }
+
   return (
-    <textarea
-      aria-label="Note editor"
-      autoCapitalize="off"
-      autoComplete="off"
-      autoCorrect="off"
-      className="h-full w-full resize-none border-0 bg-transparent outline-none"
-      readOnly={!editable}
-      spellCheck={false}
-      value={value}
-      wrap={settings.wordWrap ? 'soft' : 'off'}
-      onChange={(event) => onChange(event.target.value)}
-      onKeyDown={handleKeyDown}
-      style={{
-        color: editorColors['editor.foreground'],
-        caretColor: editorColors['editorCursor.foreground'],
-        fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
-        fontSize: nativeFontSize,
-        lineHeight: `${Math.round(nativeFontSize * 1.65)}px`,
-        overflowWrap: settings.wordWrap ? 'break-word' : 'normal',
-        padding: '22px 18px',
-        tabSize: 2,
-        touchAction: 'auto',
-        userSelect: 'text',
-        WebkitOverflowScrolling: 'touch',
-        WebkitTextSizeAdjust: '100%',
-        WebkitUserSelect: 'text',
-        whiteSpace: settings.wordWrap ? 'pre-wrap' : 'pre',
-      }}
-    />
+    <div className="relative h-full w-full">
+      {highlightedContent && (
+        <div
+          ref={backdropRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+        >
+          <pre
+            style={{
+              ...sharedTextStyle,
+              color: editorColors['editor.foreground'],
+              margin: 0,
+              minWidth: '100%',
+              width: settings.wordWrap ? 'auto' : 'max-content',
+            }}
+          >
+            {highlightedContent}
+            {'\n'}
+          </pre>
+        </div>
+      )}
+      <textarea
+        ref={textareaRef}
+        aria-label="Note editor"
+        autoCapitalize="off"
+        autoComplete="off"
+        autoCorrect="off"
+        className={`touch-editor-input absolute inset-0 h-full w-full resize-none border-0 bg-transparent outline-none${highlightedContent ? ' touch-editor-input--highlighted' : ''}`}
+        readOnly={!editable}
+        spellCheck={false}
+        value={value}
+        wrap={settings.wordWrap ? 'soft' : 'off'}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={handleKeyDown}
+        onScroll={handleScroll}
+        style={{
+          ...sharedTextStyle,
+          color: highlightedContent ? 'transparent' : editorColors['editor.foreground'],
+          caretColor: editorColors['editorCursor.foreground'],
+          '--touch-editor-selection': withAlpha(editorColors['editor.selectionBackground'], '99'),
+          touchAction: 'auto',
+          userSelect: 'text',
+          WebkitOverflowScrolling: 'touch',
+          WebkitUserSelect: 'text',
+        }}
+      />
+    </div>
   )
 }
 
@@ -547,6 +765,7 @@ export default function Editor({
             editable={editable}
             settings={settings}
             theme={currentTheme}
+            language={activeLanguage}
           />
         ) : (
           <MonacoEditor

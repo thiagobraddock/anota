@@ -15,6 +15,7 @@ const DEFAULT_INIT_RETRIES = 5
 const DEFAULT_RETRY_DELAY_MS = 1000
 const DEFAULT_MAX_RETRY_DELAY_MS = 10000
 const DEFAULT_HEALTHCHECK_CACHE_MS = 5000
+const EXPLICIT_TRANSACTION_PATTERN = /\b(BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i
 
 const dbState = {
   reachable: false,
@@ -142,18 +143,129 @@ async function runSchemaAndMigrations(client) {
 }
 
 function shouldUseTransaction(sql) {
-  return !/\b(CREATE|DROP)\s+INDEX\s+CONCURRENTLY\b|\bREINDEX\b|\bVACUUM\b|\bCLUSTER\b|\bREFRESH\s+MATERIALIZED\s+VIEW\s+CONCURRENTLY\b/iu.test(sql)
+  return !EXPLICIT_TRANSACTION_PATTERN.test(sql) && !/\b(CREATE|DROP)\s+INDEX\s+CONCURRENTLY\b|\bREINDEX\b|\bVACUUM\b|\bCLUSTER\b|\bREFRESH\s+MATERIALIZED\s+VIEW\s+CONCURRENTLY\b/iu.test(sql)
+}
+
+function splitSQLStatements(sql) {
+  const statements = []
+  let current = ''
+  let quote = null
+  let dollarQuote = null
+  let lineComment = false
+  let blockComment = false
+
+  for (let index = 0; index < sql.length; index += 1) {
+    const char = sql[index]
+    const next = sql[index + 1]
+
+    if (lineComment) {
+      current += char
+      if (char === '\n') {
+        lineComment = false
+      }
+      continue
+    }
+
+    if (blockComment) {
+      current += char
+      if (char === '*' && next === '/') {
+        current += next
+        index += 1
+        blockComment = false
+      }
+      continue
+    }
+
+    if (dollarQuote) {
+      current += char
+      if (sql.startsWith(dollarQuote, index)) {
+        current += dollarQuote.slice(1)
+        index += dollarQuote.length - 1
+        dollarQuote = null
+      }
+      continue
+    }
+
+    if (quote) {
+      current += char
+      if (char === quote && next === quote) {
+        current += next
+        index += 1
+      } else if (char === quote && sql[index - 1] !== '\\') {
+        quote = null
+      }
+      continue
+    }
+
+    if (char === '-' && next === '-') {
+      current += char + next
+      index += 1
+      lineComment = true
+      continue
+    }
+
+    if (char === '/' && next === '*') {
+      current += char + next
+      index += 1
+      blockComment = true
+      continue
+    }
+
+    if (char === '\'' || char === '"') {
+      quote = char
+      current += char
+      continue
+    }
+
+    if (char === '$') {
+      const match = sql.slice(index).match(/^\$[A-Za-z0-9_]*\$/)
+      if (match) {
+        dollarQuote = match[0]
+        current += dollarQuote
+        index += dollarQuote.length - 1
+        continue
+      }
+    }
+
+    if (char === ';') {
+      const statement = current.trim()
+      if (statement) {
+        statements.push(statement)
+      }
+      current = ''
+      continue
+    }
+
+    current += char
+  }
+
+  const finalStatement = current.trim()
+  if (finalStatement) {
+    statements.push(finalStatement)
+  }
+
+  return statements
 }
 
 async function runSQL(client, sql) {
+  const statements = splitSQLStatements(sql)
+
+  if (statements.length === 0) {
+    return
+  }
+
   if (!shouldUseTransaction(sql)) {
-    await client.query(sql)
+    for (const statement of statements) {
+      await client.query(statement)
+    }
     return
   }
 
   await client.query('BEGIN')
   try {
-    await client.query(sql)
+    for (const statement of statements) {
+      await client.query(statement)
+    }
     await client.query('COMMIT')
   } catch (error) {
     try {

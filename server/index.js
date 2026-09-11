@@ -49,7 +49,7 @@ async function handleHealthCheck(_req, res) {
       initializing: db.initializing,
       lastReadyAt: db.lastReadyAt,
       lastHealthCheckAt: db.lastHealthCheckAt,
-      errorCode: db.lastError?.code || null,
+      errorCode: ready ? null : db.lastError?.code || null,
     },
   });
 }

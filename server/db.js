@@ -55,10 +55,6 @@ function recordDBReachable() {
   dbState.initializing = false
   dbState.lastHealthCheckAt = now
   dbState.lastHealthCheckResult = { reachable: true }
-
-  if (dbState.initialized) {
-    dbState.lastError = null
-  }
 }
 
 function recordDBInitialized() {
@@ -142,8 +138,13 @@ async function runSchemaAndMigrations(client) {
   }
 }
 
-function shouldUseTransaction(sql) {
-  return !EXPLICIT_TRANSACTION_PATTERN.test(sql) && !/\b(CREATE|DROP)\s+INDEX\s+CONCURRENTLY\b|\bREINDEX\b|\bVACUUM\b|\bCLUSTER\b|\bREFRESH\s+MATERIALIZED\s+VIEW\s+CONCURRENTLY\b/iu.test(sql)
+function shouldUseTransaction(statements) {
+  return statements.every((statement) => {
+    return (
+      !EXPLICIT_TRANSACTION_PATTERN.test(statement) &&
+      !/\b(CREATE|DROP)\s+INDEX\s+CONCURRENTLY\b|\bREINDEX\b|\bVACUUM\b|\bCLUSTER\b|\bREFRESH\s+MATERIALIZED\s+VIEW\s+CONCURRENTLY\b/iu.test(statement)
+    )
+  })
 }
 
 function splitSQLStatements(sql) {
@@ -159,7 +160,6 @@ function splitSQLStatements(sql) {
     const next = sql[index + 1]
 
     if (lineComment) {
-      current += char
       if (char === '\n') {
         lineComment = false
       }
@@ -167,9 +167,7 @@ function splitSQLStatements(sql) {
     }
 
     if (blockComment) {
-      current += char
       if (char === '*' && next === '/') {
-        current += next
         index += 1
         blockComment = false
       }
@@ -254,7 +252,7 @@ async function runSQL(client, sql) {
     return
   }
 
-  if (!shouldUseTransaction(sql)) {
+  if (!shouldUseTransaction(statements)) {
     for (const statement of statements) {
       await client.query(statement)
     }

@@ -227,7 +227,11 @@ export async function checkDBHealth() {
   const cacheMs = getNumberEnv('DB_HEALTHCHECK_CACHE_MS', DEFAULT_HEALTHCHECK_CACHE_MS)
 
   if (dbState.healthCheckPromise) {
-    await dbState.healthCheckPromise
+    try {
+      await dbState.healthCheckPromise
+    } catch (error) {
+      console.warn('Shared PostgreSQL healthcheck failed', serializeError(error))
+    }
     return getDBStatus()
   }
 
@@ -251,7 +255,12 @@ export async function checkDBHealth() {
     }
   })()
 
-  await dbState.healthCheckPromise
+  try {
+    await dbState.healthCheckPromise
+  } catch (error) {
+    console.warn('PostgreSQL healthcheck execution failed', serializeError(error))
+  }
+
   return getDBStatus()
 }
 

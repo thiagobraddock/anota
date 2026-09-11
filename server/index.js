@@ -6,7 +6,7 @@ import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import pool, { initDB } from "./db.js";
+import pool, { checkDBHealth, getDBStatus, initDB } from "./db.js";
 import notesRouter from "./routes/notes.js";
 import authRouter from "./routes/auth.js";
 import { setupWebSocket } from "./websocket.js";
@@ -36,7 +36,24 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+async function handleHealthCheck(_req, res) {
+  const db = await checkDBHealth();
+  const ready = db.ready && !db.initializing;
+
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ok" : "degraded",
+    db: {
+      ready: db.ready,
+      initializing: db.initializing,
+      lastReadyAt: db.lastReadyAt,
+      lastHealthCheckAt: db.lastHealthCheckAt,
+      errorCode: db.lastError?.code || null,
+    },
+  });
+}
+
+app.get("/api/health", handleHealthCheck);
+app.get("/api/ready", handleHealthCheck);
 app.use("/api/notes", notesRouter);
 app.use("/api/auth", authRouter);
 
@@ -54,6 +71,7 @@ app.get("*", (req, res) => {
 async function start() {
   try {
     await initDB();
+    console.log("✅ Database ready", getDBStatus());
 
     // Create HTTP server
     const server = createServer(app);
@@ -65,7 +83,7 @@ async function start() {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error("Failed to start server:", err);
+    console.error("Failed to start server after database initialization retries:", err);
     process.exit(1);
   }
 }

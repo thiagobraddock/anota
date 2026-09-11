@@ -127,6 +127,23 @@ async function runSchemaAndMigrations(client) {
   }
 }
 
+async function initializeDatabase(client) {
+  await client.query('BEGIN')
+
+  try {
+    await runSchemaAndMigrations(client)
+    await client.query('COMMIT')
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK')
+    } catch (rollbackError) {
+      console.error('Database initialization rollback failed', serializeError(rollbackError))
+    }
+
+    throw error
+  }
+}
+
 export async function initDB() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is not configured')
@@ -137,17 +154,17 @@ export async function initDB() {
 
   for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
     let client
-    let releaseError
+    let destroyClient = false
 
     try {
       client = await pool.connect()
       await client.query('SELECT 1')
-      await runSchemaAndMigrations(client)
+      await initializeDatabase(client)
       recordDBReady()
       return
     } catch (error) {
-      releaseError = error
       const transient = isTransientConnectionError(error)
+      destroyClient = transient
       recordDBError(error, { context: 'startup', attempt, transient })
 
       if (!transient || attempt === maxRetries) {
@@ -167,7 +184,7 @@ export async function initDB() {
       await sleep(delay)
     } finally {
       if (client) {
-        client.release(releaseError)
+        client.release(destroyClient ? new Error('Discarding unhealthy PostgreSQL client') : undefined)
       }
     }
   }

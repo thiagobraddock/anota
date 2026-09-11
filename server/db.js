@@ -17,7 +17,8 @@ const DEFAULT_MAX_RETRY_DELAY_MS = 10000
 const DEFAULT_HEALTHCHECK_CACHE_MS = 5000
 
 const dbState = {
-  ready: false,
+  reachable: false,
+  initialized: false,
   initializing: false,
   lastError: null,
   lastReadyAt: null,
@@ -47,27 +48,40 @@ function serializeError(error) {
   }
 }
 
-function recordDBReady() {
+function recordDBReachable() {
   const now = new Date().toISOString()
-  dbState.ready = true
+  dbState.reachable = true
   dbState.initializing = false
-  dbState.lastError = null
-  dbState.lastReadyAt = now
   dbState.lastHealthCheckAt = now
-  dbState.lastHealthCheckResult = { ready: true }
+  dbState.lastHealthCheckResult = { reachable: true }
+
+  if (dbState.initialized) {
+    dbState.lastError = null
+  }
+}
+
+function recordDBInitialized() {
+  const now = new Date().toISOString()
+  dbState.initialized = true
+  dbState.lastReadyAt = now
+  dbState.lastError = null
+  recordDBReachable()
 }
 
 function recordDBError(error, context = {}) {
   const now = new Date().toISOString()
-  dbState.ready = false
+  dbState.reachable = false
   dbState.initializing = context.context === 'startup'
+  if (dbState.initializing) {
+    dbState.initialized = false
+  }
   dbState.lastError = {
     ...context,
     ...serializeError(error),
     nestedErrors: getErrorList(error).slice(1).map(serializeError),
   }
   dbState.lastHealthCheckAt = now
-  dbState.lastHealthCheckResult = { ready: false }
+  dbState.lastHealthCheckResult = { reachable: false }
 }
 
 function isTransientConnectionError(error) {
@@ -110,7 +124,7 @@ pool.on('error', (error) => {
 async function runSchemaAndMigrations(client) {
   // First run schema
   const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8')
-  await client.query(schema)
+  await runSQL(client, schema)
   console.log('Database schema initialized')
   
   // Then run migrations
@@ -119,7 +133,7 @@ async function runSchemaAndMigrations(client) {
     const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
     for (const file of files) {
       const migration = readFileSync(join(migrationsDir, file), 'utf-8')
-      await client.query(migration)
+      await runSQL(client, migration)
       console.log(`Migration ${file} applied`)
     }
   } catch (err) {
@@ -127,11 +141,19 @@ async function runSchemaAndMigrations(client) {
   }
 }
 
-async function initializeDatabase(client) {
-  await client.query('BEGIN')
+function shouldUseTransaction(sql) {
+  return !/\b(CREATE|DROP)\s+INDEX\s+CONCURRENTLY\b|\bREINDEX\b|\bVACUUM\b|\bCLUSTER\b|\bREFRESH\s+MATERIALIZED\s+VIEW\s+CONCURRENTLY\b/iu.test(sql)
+}
 
+async function runSQL(client, sql) {
+  if (!shouldUseTransaction(sql)) {
+    await client.query(sql)
+    return
+  }
+
+  await client.query('BEGIN')
   try {
-    await runSchemaAndMigrations(client)
+    await client.query(sql)
     await client.query('COMMIT')
   } catch (error) {
     try {
@@ -159,8 +181,8 @@ export async function initDB() {
     try {
       client = await pool.connect()
       await client.query('SELECT 1')
-      await initializeDatabase(client)
-      recordDBReady()
+      await runSchemaAndMigrations(client)
+      recordDBInitialized()
       return
     } catch (error) {
       const transient = isTransientConnectionError(error)
@@ -192,7 +214,8 @@ export async function initDB() {
 
 export function getDBStatus() {
   return {
-    ready: dbState.ready,
+    reachable: dbState.reachable,
+    initialized: dbState.initialized,
     initializing: dbState.initializing,
     lastReadyAt: dbState.lastReadyAt,
     lastHealthCheckAt: dbState.lastHealthCheckAt,
@@ -219,11 +242,9 @@ export async function checkDBHealth() {
   dbState.healthCheckPromise = (async () => {
     try {
       await pool.query('SELECT 1')
-      recordDBReady()
+      recordDBReachable()
     } catch (error) {
       recordDBError(error, { context: 'healthcheck' })
-      dbState.lastHealthCheckAt = new Date().toISOString()
-      dbState.lastHealthCheckResult = { ready: false }
       console.warn('PostgreSQL healthcheck failed', dbState.lastError)
     } finally {
       dbState.healthCheckPromise = null

@@ -38,12 +38,14 @@ app.use(passport.session());
 
 async function handleHealthCheck(_req, res) {
   const db = await checkDBHealth();
-  const ready = db.ready && !db.initializing;
+  const ready = db.initialized && db.reachable && !db.initializing;
 
   res.status(ready ? 200 : 503).json({
     status: ready ? "ok" : "degraded",
     db: {
-      ready: db.ready,
+      ready,
+      reachable: db.reachable,
+      initialized: db.initialized,
       initializing: db.initializing,
       lastReadyAt: db.lastReadyAt,
       lastHealthCheckAt: db.lastHealthCheckAt,

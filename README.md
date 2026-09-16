@@ -63,12 +63,11 @@ Create `server/.env`:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/notepad
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
 SESSION_SECRET=your-session-secret-change-this
+TOTP_ENCRYPTION_KEY=any-long-random-string
 ```
 
-> Google OAuth is optional. The app works without authentication using anonymous creator tokens.
+> Login is optional. The app works without authentication using anonymous device cookies; logging in with a code from an authenticator app (e.g. Apple Passwords) links your notes to an account permanently.
 
 ## How It Works
 

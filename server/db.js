@@ -124,17 +124,26 @@ async function runSchemaAndMigrations(client) {
   await runSQL(client, schema)
   console.log('Database schema initialized')
   
-  // Then run migrations
+  // Then run migrations. A missing migrations directory is fine (nothing to
+  // run); any other error - e.g. a real SQL failure in one of the files -
+  // must NOT be swallowed, or later migrations silently never get applied
+  // and the schema silently drifts from what the code expects.
   const migrationsDir = join(__dirname, 'migrations')
+  let files
   try {
-    const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
-    for (const file of files) {
-      const migration = readFileSync(join(migrationsDir, file), 'utf-8')
-      await runSQL(client, migration)
-      console.log(`Migration ${file} applied`)
-    }
+    files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
   } catch (err) {
-    console.log('No migrations to run or migrations dir missing')
+    if (err.code === 'ENOENT') {
+      console.log('No migrations directory found, skipping')
+      return
+    }
+    throw err
+  }
+
+  for (const file of files) {
+    const migration = readFileSync(join(migrationsDir, file), 'utf-8')
+    await runSQL(client, migration)
+    console.log(`Migration ${file} applied`)
   }
 }
 

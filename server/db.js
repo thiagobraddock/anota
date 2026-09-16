@@ -208,6 +208,12 @@ function splitSQLStatements(sql) {
     if (lineComment) {
       if (char === '\n') {
         lineComment = false
+        // Keep the newline itself: dropping it glues whatever follows onto
+        // this comment's leading "--" with no line break in between, which
+        // silently comments out the next statement too when a migration has
+        // no blank line after its header comments (exactly what happened to
+        // migration 007's first ALTER TABLE).
+        current += char
       }
       continue
     }

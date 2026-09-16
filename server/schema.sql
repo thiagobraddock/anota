@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   google_id TEXT UNIQUE,
   totp_secret_enc TEXT,
   totp_enabled BOOLEAN NOT NULL DEFAULT false,
+  is_admin BOOLEAN NOT NULL DEFAULT false,
   plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

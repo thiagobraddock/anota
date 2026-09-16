@@ -3,6 +3,7 @@ import { AuthProvider } from './hooks/useAuth'
 import { ThemeProvider } from './hooks/useTheme'
 import Home from './pages/Home'
 import NotePage from './pages/NotePage'
+import MyNotes from './pages/MyNotes'
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/minhas-notas" element={<MyNotes />} />
             <Route path="/:slug" element={<NotePage />} />
           </Routes>
         </BrowserRouter>

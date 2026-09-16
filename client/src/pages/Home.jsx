@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from '../components/ThemeToggle'
 import TotpAuthModal from '../components/TotpAuthModal'
@@ -75,10 +75,10 @@ export default function Home() {
           <ThemeToggle />
           {user ? (
             <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full ring-1 ring-glyph bg-abyss flex items-center justify-center text-terminal text-xs font-bold uppercase">
-                {user.name?.[0] || '?'}
-              </span>
               <span className="text-xs text-shade hidden sm:block">{user.name}</span>
+              <Link to="/minhas-notas" className="text-xs text-shade hover:text-bone transition">
+                minhas notas
+              </Link>
               <button onClick={logout} className="text-xs text-shade hover:text-bone transition">
                 sair
               </button>

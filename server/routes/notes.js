@@ -21,6 +21,7 @@ const RESERVED_SLUGS = [
   "about",
   "terms",
   "privacy",
+  "minhas-notas",
 ];
 
 function isValidSlug(slug) {
@@ -40,6 +41,27 @@ function isOwner(req, note) {
     (req.legacyDeviceId && note.owner_device_id === req.legacyDeviceId)
   );
 }
+
+// GET /api/notes - list the logged-in user's own notes
+router.get("/", async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Nao autenticado" });
+  }
+
+  try {
+    const result = await query(
+      `SELECT slug, access_mode, password_hash IS NOT NULL as has_password,
+              created_at, updated_at
+       FROM notes WHERE owner_id = $1
+       ORDER BY updated_at DESC`,
+      [req.user.id],
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /notes error:", err);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
 
 // GET /api/notes/:slug
 router.get("/:slug", async (req, res) => {

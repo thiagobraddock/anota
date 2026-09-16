@@ -8,6 +8,7 @@ import { isRateLimited } from '../lib/rateLimit.js'
 
 const router = Router()
 const TOTP_ISSUER = 'Anota'
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').toLowerCase().trim()
 
 router.get('/me', (req, res) => {
   if (!req.user) {
@@ -82,6 +83,10 @@ router.post('/totp/setup', async (req, res) => {
       return res.status(400).json({ error: 'Nome e e-mail sao obrigatorios' })
     }
 
+    if (!ADMIN_EMAIL || email.toLowerCase() !== ADMIN_EMAIL) {
+      return res.status(403).json({ error: 'Cadastro fechado.' })
+    }
+
     if (isRateLimited(`totp-setup:${req.ip}`, { max: 10, windowMs: 60_000 })) {
       return res.status(429).json({ error: 'Muitas tentativas. Aguarde um pouco.' })
     }
@@ -97,13 +102,13 @@ router.post('/totp/setup', async (req, res) => {
 
     if (existing.rows.length > 0) {
       await query(
-        'UPDATE users SET name = $1, totp_secret_enc = $2 WHERE id = $3',
+        'UPDATE users SET name = $1, totp_secret_enc = $2, is_admin = true WHERE id = $3',
         [name.trim(), secretEnc, existing.rows[0].id],
       )
     } else {
       await query(
-        `INSERT INTO users (email, name, totp_secret_enc)
-         VALUES ($1, $2, $3)`,
+        `INSERT INTO users (email, name, totp_secret_enc, is_admin)
+         VALUES ($1, $2, $3, true)`,
         [email, name.trim(), secretEnc],
       )
     }

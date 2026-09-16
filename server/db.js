@@ -322,6 +322,42 @@ export async function initDB() {
   }
 }
 
+const DEFAULT_QUERY_RETRIES = 2
+const DEFAULT_QUERY_RETRY_DELAY_MS = 300
+
+// Runs a query and retries on transient connection errors (e.g. the managed
+// Postgres instance restarting for maintenance), so a brief blip doesn't
+// surface as a 500 to the user on their next click.
+export async function query(text, params) {
+  const maxRetries = Math.max(1, getNumberEnv('DB_QUERY_MAX_RETRIES', DEFAULT_QUERY_RETRIES))
+
+  for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+    try {
+      const result = await pool.query(text, params)
+      if (attempt > 1) {
+        recordDBReachable()
+      }
+      return result
+    } catch (error) {
+      const transient = isTransientConnectionError(error)
+      recordDBError(error, { context: 'query', attempt, transient })
+
+      if (!transient || attempt === maxRetries) {
+        throw error
+      }
+
+      const delay = getNumberEnv('DB_QUERY_RETRY_DELAY_MS', DEFAULT_QUERY_RETRY_DELAY_MS)
+      console.warn('Query retry scheduled after transient DB error', {
+        attempt,
+        maxRetries,
+        delayMs: delay,
+        error: dbState.lastError,
+      })
+      await sleep(delay)
+    }
+  }
+}
+
 export function getDBStatus() {
   return {
     reachable: dbState.reachable,

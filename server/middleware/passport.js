@@ -1,6 +1,6 @@
 import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
-import pool from '../db.js'
+import { query } from '../db.js'
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
@@ -15,7 +15,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       const googleId = profile.id
 
       // Upsert user
-      const result = await pool.query(
+      const result = await query(
         `INSERT INTO users (email, name, avatar_url, google_id)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (google_id) DO UPDATE SET
@@ -39,7 +39,7 @@ passport.serializeUser((user, done) => {
 
 passport.deserializeUser(async (id, done) => {
   try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id])
+    const result = await query('SELECT * FROM users WHERE id = $1', [id])
     done(null, result.rows[0] || null)
   } catch (err) {
     done(err)

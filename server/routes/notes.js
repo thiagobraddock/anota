@@ -35,6 +35,7 @@ function isValidSlug(slug) {
 // the persistent cookie-based device id or the legacy localStorage-based
 // X-Device-Id header, so notes created before the cookie existed still work.
 function isOwner(req, note) {
+  if (req.user && note.owner_id && req.user.id === note.owner_id) return true;
   if (!note.owner_device_id) return false;
   return (
     note.owner_device_id === req.deviceId ||
@@ -219,7 +220,7 @@ router.delete("/:slug", async (req, res) => {
     const { slug } = req.params;
 
     const existing = await query(
-      "SELECT id, owner_device_id FROM notes WHERE slug = $1",
+      "SELECT id, owner_id, owner_device_id FROM notes WHERE slug = $1",
       [slug],
     );
 
@@ -250,7 +251,7 @@ router.post("/:slug/password", async (req, res) => {
     const { password } = req.body;
 
     const note = await query(
-      "SELECT id, owner_device_id FROM notes WHERE slug = $1",
+      "SELECT id, owner_id, owner_device_id FROM notes WHERE slug = $1",
       [slug],
     );
 
@@ -329,7 +330,7 @@ router.post("/:slug/rename", async (req, res) => {
     }
 
     const note = await query(
-      "SELECT id, owner_device_id FROM notes WHERE slug = $1",
+      "SELECT id, owner_id, owner_device_id FROM notes WHERE slug = $1",
       [slug],
     );
 
@@ -377,7 +378,7 @@ router.post("/:slug/access-mode", async (req, res) => {
     }
 
     const note = await query(
-      "SELECT id, owner_device_id, access_mode FROM notes WHERE slug = $1",
+      "SELECT id, owner_id, owner_device_id, access_mode FROM notes WHERE slug = $1",
       [slug],
     );
 

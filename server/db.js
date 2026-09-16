@@ -118,16 +118,51 @@ pool.on('error', (error) => {
   console.error('PostgreSQL pool error', dbState.lastError)
 })
 
+// Migrations with no tracking table got re-run on every single server boot
+// (there was nothing to record "already applied"). A pair of them adds a
+// column and a later one drops it - each add/drop cycle permanently burns
+// one of Postgres's max 1600 columns per table, since a dropped column's
+// slot is never reclaimed. Months of restarts eventually exhausted that
+// budget on `notes`, hard-failing ANY further ALTER TABLE ADD COLUMN
+// (error 54011) - which is what silently broke every migration after it.
+// These are already fully reflected in schema.sql, so they're seeded as
+// applied instead of re-run.
+const LEGACY_NOOP_MIGRATIONS = [
+  '001_private_by_default.sql',
+  '002_add_yjs_state.sql',
+  '003_device_ownership.sql',
+  '004_remove_yjs_state.sql',
+  '005_add_automerge_state.sql',
+  '006_remove_automerge_state.sql',
+]
+
 async function runSchemaAndMigrations(client) {
   // First run schema
   const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8')
   await runSQL(client, schema)
   console.log('Database schema initialized')
-  
-  // Then run migrations. A missing migrations directory is fine (nothing to
-  // run); any other error - e.g. a real SQL failure in one of the files -
-  // must NOT be swallowed, or later migrations silently never get applied
-  // and the schema silently drifts from what the code expects.
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      name TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
+  const appliedResult = await client.query('SELECT name FROM schema_migrations')
+  const applied = new Set(appliedResult.rows.map((row) => row.name))
+
+  for (const name of LEGACY_NOOP_MIGRATIONS) {
+    if (!applied.has(name)) {
+      await client.query('INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT DO NOTHING', [name])
+      applied.add(name)
+    }
+  }
+
+  // A missing migrations directory is fine (nothing to run); any other
+  // error - e.g. a real SQL failure in one of the files - must NOT be
+  // swallowed, or later migrations silently never get applied and the
+  // schema silently drifts from what the code expects.
   const migrationsDir = join(__dirname, 'migrations')
   let files
   try {
@@ -141,8 +176,10 @@ async function runSchemaAndMigrations(client) {
   }
 
   for (const file of files) {
+    if (applied.has(file)) continue
     const migration = readFileSync(join(migrationsDir, file), 'utf-8')
     await runSQL(client, migration)
+    await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [file])
     console.log(`Migration ${file} applied`)
   }
 }

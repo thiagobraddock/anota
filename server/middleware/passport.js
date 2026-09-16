@@ -1,13 +1,15 @@
 import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { query } from '../db.js'
+import { claimDeviceNotes } from '../lib/claimDeviceNotes.js'
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: '/api/auth/google/callback',
-  }, async (accessToken, refreshToken, profile, done) => {
+    passReqToCallback: true,
+  }, async (req, accessToken, refreshToken, profile, done) => {
     try {
       const email = profile.emails[0].value
       const name = profile.displayName
@@ -26,7 +28,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         [email, name, avatarUrl, googleId]
       )
 
-      done(null, result.rows[0])
+      const user = result.rows[0]
+      await claimDeviceNotes(user.id, [req.deviceId, req.legacyDeviceId])
+      done(null, user)
     } catch (err) {
       done(err)
     }

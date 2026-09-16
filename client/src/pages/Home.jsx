@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from '../components/ThemeToggle'
+import TotpAuthModal from '../components/TotpAuthModal'
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/
 
@@ -37,6 +38,7 @@ function useTypewriter(text, speed = 45, delay = 0) {
 export default function Home() {
   const [slug, setSlug] = useState('')
   const [error, setError] = useState('')
+  const [showTotp, setShowTotp] = useState(false)
   const navigate = useNavigate()
   const { user, login, logout } = useAuth()
 
@@ -80,12 +82,20 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            <button
-              onClick={login}
-              className="text-xs px-3 py-1.5 border border-glyph text-shade hover:text-skull hover:border-terminal transition"
-            >
-              entrar com google
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowTotp(true)}
+                className="text-xs px-3 py-1.5 border border-glyph text-shade hover:text-skull hover:border-terminal transition"
+              >
+                entrar com codigo
+              </button>
+              <button
+                onClick={login}
+                className="text-xs px-3 py-1.5 border border-glyph text-shade hover:text-skull hover:border-terminal transition"
+              >
+                entrar com google
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -147,6 +157,8 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {showTotp && <TotpAuthModal onClose={() => setShowTotp(false)} />}
     </div>
   )
 }

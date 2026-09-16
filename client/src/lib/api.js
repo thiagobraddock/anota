@@ -89,4 +89,26 @@ export const api = {
   // Auth
   getMe: () => request("/auth/me"),
   logout: () => request("/auth/logout", { method: "POST" }),
+
+  // Auth - TOTP (code from an authenticator app, e.g. Apple Passwords)
+  totpStart: (email) =>
+    request("/auth/totp/start", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  totpSetup: (email, name) =>
+    request("/auth/totp/setup", {
+      method: "POST",
+      body: JSON.stringify({ email, name }),
+    }),
+  totpConfirm: (email, code) =>
+    request("/auth/totp/confirm", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
+  totpLogin: (email, code) =>
+    request("/auth/totp/login", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
 };

@@ -18,6 +18,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Railway terminates TLS at its edge proxy and forwards plain HTTP to this
+// container, so without trusting the proxy's X-Forwarded-Proto header,
+// Express never sees the request as secure - and express-session silently
+// refuses to set a cookie with `secure: true` on a request it thinks is
+// insecure. That silently broke every login (session cookie never persisted).
+app.set("trust proxy", 1);
+
 app.use(express.json({ limit: "5mb" }));
 app.use(cookieParser());
 app.use(deviceIdMiddleware);

@@ -88,7 +88,11 @@ function retryDBInBackground() {
       console.log("✅ Database recovered", getDBStatus());
       clearInterval(timer);
     } catch (err) {
-      console.warn("Database still unavailable, will retry:", err.message);
+      console.warn(
+        "Database still unavailable, will retry:",
+        err.message,
+        JSON.stringify(getDBStatus().lastError),
+      );
     }
   }, DB_BACKGROUND_RETRY_MS);
 }
@@ -98,7 +102,11 @@ async function start() {
     await initDB();
     console.log("✅ Database ready", getDBStatus());
   } catch (err) {
-    console.error("Database not ready at startup, continuing in degraded mode:", err.message);
+    console.error(
+      "Database not ready at startup, continuing in degraded mode:",
+      err.message,
+      JSON.stringify(getDBStatus().lastError),
+    );
     retryDBInBackground();
   }
 

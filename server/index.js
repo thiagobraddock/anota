@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -10,6 +11,7 @@ import pool, { checkDBHealth, getDBStatus, initDB } from "./db.js";
 import notesRouter from "./routes/notes.js";
 import authRouter from "./routes/auth.js";
 import { setupWebSocket } from "./websocket.js";
+import { deviceIdMiddleware } from "./middleware/deviceId.js";
 import "./middleware/passport.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -17,6 +19,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "5mb" }));
+app.use(cookieParser());
+app.use(deviceIdMiddleware);
 
 const PgSession = connectPgSimple(session);
 app.use(
@@ -70,24 +74,43 @@ app.get("*", (req, res) => {
   res.sendFile(join(__dirname, "public", "index.html"));
 });
 
+const DB_BACKGROUND_RETRY_MS = 15000;
+
+// Keeps retrying initDB in the background instead of crashing the process.
+// A crash makes Railway restart the container, which creates the exact
+// "connection refused" window users hit as a 404 on their first request.
+// Staying up and reporting "degraded" on /api/health is more resilient to a
+// transient Postgres restart than dying and hoping the next boot is luckier.
+function retryDBInBackground() {
+  const timer = setInterval(async () => {
+    try {
+      await initDB();
+      console.log("✅ Database recovered", getDBStatus());
+      clearInterval(timer);
+    } catch (err) {
+      console.warn("Database still unavailable, will retry:", err.message);
+    }
+  }, DB_BACKGROUND_RETRY_MS);
+}
+
 async function start() {
   try {
     await initDB();
     console.log("✅ Database ready", getDBStatus());
-
-    // Create HTTP server
-    const server = createServer(app);
-
-    // Setup WebSocket for real-time collaboration
-    setupWebSocket(server);
-
-    server.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-    });
   } catch (err) {
-    console.error("Failed to start server after database initialization retries:", err);
-    process.exit(1);
+    console.error("Database not ready at startup, continuing in degraded mode:", err.message);
+    retryDBInBackground();
   }
+
+  // Create HTTP server
+  const server = createServer(app);
+
+  // Setup WebSocket for real-time collaboration
+  setupWebSocket(server);
+
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
 }
 
 start();

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcrypt";
-import pool from "../db.js";
+import { query } from "../db.js";
 import {
   closeCollaborationRoom,
   getCollaboratorCount,
@@ -30,11 +30,15 @@ function isValidSlug(slug) {
   return SLUG_REGEX.test(slug);
 }
 
-// Check if request comes from the note owner (by device_id)
+// Check if request comes from the note owner (by device_id). Matches either
+// the persistent cookie-based device id or the legacy localStorage-based
+// X-Device-Id header, so notes created before the cookie existed still work.
 function isOwner(req, note) {
-  const deviceId = req.headers["x-device-id"];
-  if (!deviceId) return false;
-  return note.owner_device_id === deviceId;
+  if (!note.owner_device_id) return false;
+  return (
+    note.owner_device_id === req.deviceId ||
+    (req.legacyDeviceId && note.owner_device_id === req.legacyDeviceId)
+  );
 }
 
 // GET /api/notes/:slug
@@ -45,7 +49,7 @@ router.get("/:slug", async (req, res) => {
       return res.status(400).json({ error: "Slug invalido" });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `SELECT id, slug, content, owner_id, owner_device_id, access_mode, 
               password_hash IS NOT NULL as has_password, created_at, updated_at 
        FROM notes WHERE slug = $1`,
@@ -57,11 +61,10 @@ router.get("/:slug", async (req, res) => {
     }
 
     const note = result.rows[0];
-    const deviceId = req.headers["x-device-id"];
     const is_owner = isOwner(req, note);
 
     // Update last_accessed_at
-    await pool.query(
+    await query(
       "UPDATE notes SET last_accessed_at = NOW() WHERE id = $1",
       [note.id],
     );
@@ -112,18 +115,14 @@ router.put("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
     const { content } = req.body;
-    const deviceId = req.headers["x-device-id"];
+    const deviceId = req.deviceId;
 
     if (!isValidSlug(slug)) {
       return res.status(400).json({ error: "Slug invalido" });
     }
 
-    if (!deviceId) {
-      return res.status(400).json({ error: "Device ID necessario" });
-    }
-
     // Check if note exists
-    const existing = await pool.query(
+    const existing = await query(
       `SELECT id, owner_id, owner_device_id, access_mode, 
               password_hash IS NOT NULL as has_password 
        FROM notes WHERE slug = $1`,
@@ -133,7 +132,7 @@ router.put("/:slug", async (req, res) => {
     if (existing.rows.length === 0) {
       // Create new note - private by default, owned by this device
       if (req.user) {
-        const userNotes = await pool.query(
+        const userNotes = await query(
           "SELECT COUNT(*) FROM notes WHERE owner_id = $1",
           [req.user.id],
         );
@@ -145,7 +144,7 @@ router.put("/:slug", async (req, res) => {
         }
       }
 
-      const result = await pool.query(
+      const result = await query(
         `INSERT INTO notes (slug, content, owner_id, owner_device_id, access_mode) 
          VALUES ($1, $2, $3, $4, 'private') 
          RETURNING id, slug, access_mode, created_at, updated_at`,
@@ -178,7 +177,7 @@ router.put("/:slug", async (req, res) => {
     }
 
     // Update note
-    const result = await pool.query(
+    const result = await query(
       `UPDATE notes SET content = $1, updated_at = NOW(), last_accessed_at = NOW() 
        WHERE slug = $2 
        RETURNING id, slug, updated_at`,
@@ -197,7 +196,7 @@ router.delete("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
 
-    const existing = await pool.query(
+    const existing = await query(
       "SELECT id, owner_device_id FROM notes WHERE slug = $1",
       [slug],
     );
@@ -213,7 +212,7 @@ router.delete("/:slug", async (req, res) => {
     }
 
     await persistLiveNoteContent(slug);
-    await pool.query("DELETE FROM notes WHERE slug = $1", [slug]);
+    await query("DELETE FROM notes WHERE slug = $1", [slug]);
     closeCollaborationRoom(slug, 1008, "Note deleted");
     res.json({ success: true });
   } catch (err) {
@@ -228,7 +227,7 @@ router.post("/:slug/password", async (req, res) => {
     const { slug } = req.params;
     const { password } = req.body;
 
-    const note = await pool.query(
+    const note = await query(
       "SELECT id, owner_device_id FROM notes WHERE slug = $1",
       [slug],
     );
@@ -245,13 +244,13 @@ router.post("/:slug/password", async (req, res) => {
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
-      await pool.query(
+      await query(
         "UPDATE notes SET password_hash = $1, updated_at = NOW() WHERE slug = $2",
         [hash, slug],
       );
       req.session[`note_verified_${note.rows[0].id}`] = true;
     } else {
-      await pool.query(
+      await query(
         "UPDATE notes SET password_hash = NULL, updated_at = NOW() WHERE slug = $1",
         [slug],
       );
@@ -270,7 +269,7 @@ router.post("/:slug/verify-password", async (req, res) => {
     const { slug } = req.params;
     const { password } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       "SELECT id, password_hash FROM notes WHERE slug = $1",
       [slug],
     );
@@ -307,7 +306,7 @@ router.post("/:slug/rename", async (req, res) => {
       return res.status(400).json({ error: "Novo slug invalido" });
     }
 
-    const note = await pool.query(
+    const note = await query(
       "SELECT id, owner_device_id FROM notes WHERE slug = $1",
       [slug],
     );
@@ -322,7 +321,7 @@ router.post("/:slug/rename", async (req, res) => {
       });
     }
 
-    const existing = await pool.query("SELECT id FROM notes WHERE slug = $1", [
+    const existing = await query("SELECT id FROM notes WHERE slug = $1", [
       newSlug,
     ]);
     if (existing.rows.length > 0) {
@@ -330,7 +329,7 @@ router.post("/:slug/rename", async (req, res) => {
     }
 
     await persistLiveNoteContent(slug);
-    const result = await pool.query(
+    const result = await query(
       "UPDATE notes SET slug = $1, updated_at = NOW() WHERE slug = $2 RETURNING id, slug",
       [newSlug, slug],
     );
@@ -355,7 +354,7 @@ router.post("/:slug/access-mode", async (req, res) => {
       });
     }
 
-    const note = await pool.query(
+    const note = await query(
       "SELECT id, owner_device_id, access_mode FROM notes WHERE slug = $1",
       [slug],
     );
@@ -374,7 +373,7 @@ router.post("/:slug/access-mode", async (req, res) => {
       await persistLiveNoteContent(slug);
     }
 
-    await pool.query(
+    await query(
       "UPDATE notes SET access_mode = $1, updated_at = NOW() WHERE slug = $2",
       [mode, slug],
     );

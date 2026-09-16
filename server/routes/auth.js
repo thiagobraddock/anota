@@ -1,5 +1,4 @@
 import { Router } from 'express'
-import passport from 'passport'
 import QRCode from 'qrcode'
 import { generateSecret, generateURI, verify as verifyTotp } from 'otplib'
 import { query } from '../db.js'
@@ -9,16 +8,6 @@ import { isRateLimited } from '../lib/rateLimit.js'
 
 const router = Router()
 const TOTP_ISSUER = 'Anota'
-
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email'],
-}))
-
-router.get('/google/callback', passport.authenticate('google', {
-  failureRedirect: '/?error=auth',
-}), (req, res) => {
-  res.redirect('/')
-})
 
 router.get('/me', (req, res) => {
   if (!req.user) {
@@ -97,18 +86,10 @@ router.post('/totp/setup', async (req, res) => {
       return res.status(429).json({ error: 'Muitas tentativas. Aguarde um pouco.' })
     }
 
-    const existing = await query('SELECT id, google_id, totp_enabled FROM users WHERE email = $1', [email])
-    const isSelf = req.user && req.user.email === email
+    const existing = await query('SELECT id, totp_enabled FROM users WHERE email = $1', [email])
 
-    if (existing.rows.length > 0 && !isSelf) {
-      if (existing.rows[0].totp_enabled) {
-        return res.status(409).json({ error: 'Essa conta ja tem um codigo configurado. Use login.' })
-      }
-      if (existing.rows[0].google_id) {
-        return res.status(409).json({
-          error: 'Esse e-mail ja esta vinculado a uma conta Google. Entre com Google.',
-        })
-      }
+    if (existing.rows.length > 0 && existing.rows[0].totp_enabled) {
+      return res.status(409).json({ error: 'Essa conta ja tem um codigo configurado. Use login.' })
     }
 
     const secret = generateSecret()

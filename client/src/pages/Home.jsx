@@ -40,7 +40,7 @@ export default function Home() {
   const [error, setError] = useState('')
   const [showTotp, setShowTotp] = useState(false)
   const navigate = useNavigate()
-  const { user, login, logout } = useAuth()
+  const { user, logout } = useAuth()
 
   const init = useTypewriter('> initializing anota.it...', 40, 200)
   const slogan = useTypewriter('escreva. salve. compartilhe.', 50, 1400)
@@ -75,27 +75,21 @@ export default function Home() {
           <ThemeToggle />
           {user ? (
             <div className="flex items-center gap-3">
-              <img src={user.avatar_url} alt="" className="w-7 h-7 rounded-full ring-1 ring-glyph" />
+              <span className="w-7 h-7 rounded-full ring-1 ring-glyph bg-abyss flex items-center justify-center text-terminal text-xs font-bold uppercase">
+                {user.name?.[0] || '?'}
+              </span>
               <span className="text-xs text-shade hidden sm:block">{user.name}</span>
               <button onClick={logout} className="text-xs text-shade hover:text-bone transition">
                 sair
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowTotp(true)}
-                className="text-xs px-3 py-1.5 border border-glyph text-shade hover:text-skull hover:border-terminal transition"
-              >
-                entrar com codigo
-              </button>
-              <button
-                onClick={login}
-                className="text-xs px-3 py-1.5 border border-glyph text-shade hover:text-skull hover:border-terminal transition"
-              >
-                entrar com google
-              </button>
-            </div>
+            <button
+              onClick={() => setShowTotp(true)}
+              className="text-xs px-3 py-1.5 border border-glyph text-shade hover:text-skull hover:border-terminal transition"
+            >
+              entrar com codigo
+            </button>
           )}
         </div>
       </header>
@@ -153,7 +147,7 @@ export default function Home() {
             <p>3. modo aberto = qualquer um com o link edita</p>
             <p>4. modo privado = so voce edita</p>
             <p>5. suas notas nao expiram</p>
-            <p>6. login com google = notas permanentes entre dispositivos</p>
+            <p>6. entrar com codigo = notas permanentes entre dispositivos</p>
           </div>
         </div>
       </main>

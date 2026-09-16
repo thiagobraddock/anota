@@ -58,6 +58,7 @@ async function request(path, options = {}) {
 
 export const api = {
   // Notes
+  listMyNotes: () => request(`/notes`),
   getNote: (slug) => request(`/notes/${slug}`),
   saveNote: (slug, content) =>
     request(`/notes/${slug}`, {

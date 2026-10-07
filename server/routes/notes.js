@@ -154,7 +154,9 @@ router.put("/:slug", async (req, res) => {
 
     if (existing.rows.length === 0) {
       // Create new note - private by default, owned by this device
-      if (req.user) {
+      // The admin owns every note (migration 010), so the free-plan cap
+      // would block them from creating any new note while logged in.
+      if (req.user && !req.user.is_admin) {
         const userNotes = await query(
           "SELECT COUNT(*) FROM notes WHERE owner_id = $1",
           [req.user.id],
